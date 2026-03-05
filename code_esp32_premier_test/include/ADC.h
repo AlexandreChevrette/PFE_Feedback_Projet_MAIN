@@ -16,7 +16,7 @@ class ADC{
         void setSampleRate(int p_sampleSpeed);
         void setupChannel(int p_channel); // enable and differential
         void disableChannel(int p_channel);
-        void readValues(std::array<float, numberOfChannels>& p_values);
+        void readValues();
         
     
     private:
@@ -24,7 +24,7 @@ class ADC{
         uint32_t spiTransfer24(uint32_t p_data);
         void writeRegister(uint8_t p_reg, uint16_t p_value); 
         uint16_t readRegister(uint8_t p_reg);
-        void ADC::readData(int32_t* p_channels);
+        void readData(int32_t* p_channels);
 };
 
 

@@ -132,6 +132,6 @@ void ADC::disableChannel(int channel){
 
 }
 
-void ADC::readValues(std::array<float, numberOfChannels>& p_values){
+void ADC::readValues(){
 
 }

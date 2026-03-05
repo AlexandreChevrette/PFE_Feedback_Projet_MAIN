@@ -15,7 +15,7 @@ int pwmRes = 8;      // 8-bit PWM
 
 float consigne = 2.5;
 float integral = 0;
-float proportionnel = 1;
+float proportionnel = 2;
 float output = 0;
 
 float erreurSum = 0;
@@ -85,9 +85,9 @@ void loop() {
   else if (output >= 0){
     digitalWrite(IN2, HIGH);
     digitalWrite(IN1, LOW);
-    outputValue = output+160;
+    outputValue = output+150;
     ledcWrite(pwmChannel, outputValue);
-    Serial.println(output+160);
+    Serial.println(output+150);
   }
   delay(10);
 }

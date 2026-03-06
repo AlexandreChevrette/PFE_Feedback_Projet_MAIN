@@ -8,7 +8,8 @@ void IRAM_ATTR drdyISR()
 }
 
 void setup() {
-    attachInterrupt(DRDY_PIN, drdyISR, FALLING);
+    attachInterrupt(digitalPinToInterrupt(DRDY_PIN), drdyISR, FALLING);
+    ADC adc;
 }
 
 

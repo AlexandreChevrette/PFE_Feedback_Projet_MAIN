@@ -82,6 +82,11 @@ void ADC::readData()
         m_adcValues[ch] = convert24BitToVoltage(value, 1.f);
     }
 
+        // flush remaining frames
+    for(int i = 0; i < (FRAME_SIZE_BYTES - (3*(1+numberOfChannels))); i++){
+        spi2.transfer(0);
+    }
+
     spi2.endTransaction();
 }  
 
@@ -126,7 +131,7 @@ const std::array<float, numberOfChannels>& ADC::getData() const{
 // }
 
 
-// put this function on hold, i don't really think its needed 
+// put this function on hold, i don't really think its needed (flush register)
 // (difficult to run while take data in)
 // uint16_t ADC::readRegister(uint8_t p_reg)
 // {

@@ -51,7 +51,7 @@ void ADC::writeRegister(uint8_t p_reg, uint16_t p_value) const
     spi2.transfer(buffer, 6);
 
     // flush remaining frames
-    for(int i = 0; i < (FRAME_SIZE_BYTES - 6); i++){
+    for(int i = 0; i < (FRAME_SIZE_BYTES_ADC - 6); i++){
         spi2.transfer(0);
     }
 
@@ -83,7 +83,7 @@ void ADC::readData()
     }
 
         // flush remaining frames
-    for(int i = 0; i < (FRAME_SIZE_BYTES - (3*(1+numberOfChannels))); i++){
+    for(int i = 0; i < (FRAME_SIZE_BYTES_ADC - (3*(1+numberOfChannels))); i++){
         spi2.transfer(0);
     }
 

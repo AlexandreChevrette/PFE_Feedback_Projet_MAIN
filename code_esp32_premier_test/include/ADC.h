@@ -34,7 +34,7 @@
 #define LOWPOWER    0b01 // 
 #define HIGHPOWER   0b10 //
 
-const int FRAME_SIZE_BYTES = 15; // for 24 bits word length
+const int FRAME_SIZE_BYTES_ADC = 15; // for 24 bits word length
 
 const int numberOfChannels = 3;
 

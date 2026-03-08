@@ -42,13 +42,13 @@ void MotorControl::setDirection(size_t p_motorIndex, uint8_t newValue)
 {
     if ((p_motorIndex < numberOfMotors + 1) && (p_motorIndex > 0))
     {
-        uint8_t* reg = (p_motorIndex <= 2) ? &m_direction1Values : &m_direction2Values;
+        uint8_t* data = (p_motorIndex <= 2) ? &m_direction1Values : &m_direction2Values;
         uint8_t shift = (p_motorIndex % 2) ? 0 : 4;
 
-        *reg = (*reg & ~(0x0F << shift)) | ((newValue & 0x0F) << shift);
+        *data = (*data & ~(0x0F << shift)) | (newValue << shift);
 
         spi3.transfer(directionAddress[p_motorIndex - 1]);
-        spi3.transfer(*reg);
+        spi3.transfer(*data);
     }
 }
 
@@ -59,6 +59,10 @@ void MotorControl::setForward(size_t p_motorIndex){
 void MotorControl::setReverse(size_t p_motorIndex){
     setDirection(p_motorIndex, 0b0110);
 }
+
+void MotorControl::cutPowerMotor(size_t p_motorIndex){
+    setDirection(p_motorIndex, 0b0000);
+};
 
 void MotorControl::setPwmFreq(uint8_t p_pwmMode) const{
     spi3.transfer(PWM_FREQ1_ADDR);

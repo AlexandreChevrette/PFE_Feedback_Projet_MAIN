@@ -45,7 +45,8 @@
 #define SPI_SCLK_SPEED_MOT  1000000
 
 #define SYNC_RECT_ADDR      0x0D // Free-wheeling
-#define ENABLE_FREE_W       0xFF // 1111 1111
+#define ENABLE_FREE_W       0x15 // 0001 0101
+// setting HB1, 3, 5 to free_wheeling (synchronous rectification for PWM channels)
 
 #define READ_ADDRESS        0x40 // concat to address to read
 
@@ -65,6 +66,7 @@ class MotorControl{
         void setPWM(size_t p_motorIndex, uint8_t p_pwmValue);
         void setForward(size_t p_motorIndex);
         void setReverse(size_t p_motorIndex);
+        void cutPowerMotor(size_t p_motorIndex);
         uint8_t getStatus() const;
 
     private:
@@ -77,7 +79,6 @@ class MotorControl{
         void enablePwmChannels() const; 
         void setPwmFreq(uint8_t p_pwmMode) const;
         void enableSynchronousRectification() const;
-        // page 82
 };
 
 

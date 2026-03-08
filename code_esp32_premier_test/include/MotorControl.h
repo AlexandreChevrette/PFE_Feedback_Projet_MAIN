@@ -63,6 +63,7 @@ class MotorControl{
     public:
         MotorControl();
         ~MotorControl();
+        void setup();
         void setPWM(size_t p_motorIndex, uint8_t p_pwmValue);
         void setForward(size_t p_motorIndex);
         void setReverse(size_t p_motorIndex);

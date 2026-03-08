@@ -2,7 +2,7 @@
 #include "ADC.h"
 #include <stdint.h>
 #include <spi.h>
-
+#include <cmath>
 
 const int channelClock = 0;
 const int clockRes = 1; // 1-bit res
@@ -10,7 +10,9 @@ const int clockRes = 1; // 1-bit res
 
 SPIClass spi2(VSPI); //SPI2
 
-ADC::ADC(): m_adcValues{0.,0.,0.}{
+ADC::ADC(): m_adcValues{0.,0.,0.}{}
+
+void ADC::setup(){
     pinMode(DRDY_PIN, INPUT);
     
     // clock for ADC chip (conversions)
@@ -18,20 +20,20 @@ ADC::ADC(): m_adcValues{0.,0.,0.}{
     ledcAttachPin(CLOCK_OUT, channelClock);
     
     spi2.begin(SPI_SCLK, SPI_MISO, SPI_MOSI);
+    spi2.beginTransaction(SPISettings(SPI_SCLK_SPEED, MSBFIRST, SPI_MODE1)); 
+    setGain();
+    setupChannels(OSR_16256); 
+    resetSpiInterface();
+}
 
-    ADC::setGain();
-    ADC::setupChannels(OSR_16256); 
-    ADC::flushFrame();
+void ADC::resetSpiInterface() const{
+    delay(ceil((float)pow(2, 15)/(float)SPI_SCLK_SPEED*1000.0f)); //reset SPI interface (2^15 clocks)
 }
 
 void ADC::flushFrame() const
 {
-    spi2.beginTransaction(SPISettings(SPI_SCLK_SPEED, MSBFIRST, SPI_MODE1));
-
     for(int i=0;i<15;i++)
         spi2.transfer(0);
-
-    spi2.endTransaction();
 }
 
 void ADC::writeRegister(uint8_t p_reg, uint16_t p_value) const
@@ -48,24 +50,18 @@ void ADC::writeRegister(uint8_t p_reg, uint16_t p_value) const
         0x00                  // padding
     };
 
-    spi2.beginTransaction(SPISettings(SPI_SCLK_SPEED, MSBFIRST, SPI_MODE1)); 
+ 
     spi2.transfer(buffer, 6);
 
     // flush remaining frames
     for(int i = 0; i < (FRAME_SIZE_BYTES_ADC - 6); i++){
         spi2.transfer(0);
     }
-
-
-    spi2.endTransaction();
-
-
 }
 
 void ADC::readData() 
 {
     uint32_t status = 0;
-    spi2.beginTransaction(SPISettings(SPI_SCLK_SPEED, MSBFIRST, SPI_MODE1)); 
     for(int i=0;i<3;i++)
         status = (status << 8) | spi2.transfer(0);
 
@@ -88,7 +84,6 @@ void ADC::readData()
         spi2.transfer(0);
     }
 
-    spi2.endTransaction();
 }  
 
 float ADC::convert24BitToVoltage(int32_t p_adcValue, float p_gain) const

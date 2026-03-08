@@ -2,7 +2,7 @@
 #define COMMMAIN_H_
 
 #include <Arduino.h>
-#include "Variables.h"
+
 
 
 #endif 

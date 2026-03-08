@@ -10,8 +10,9 @@ SPIClass spi3(HSPI); //SPI3
 
 MotorControl::MotorControl(): m_pwmValues{0x00,0x00,0x00,0x00}, 
                               m_direction1Values{0x00},
-                              m_direction2Values{0x00}
-{
+                              m_direction2Values{0x00}{}
+
+void MotorControl::setup(){
     pinMode(NSLEEP_MOTOR, OUTPUT);
     digitalWrite(NSLEEP_MOTOR, HIGH);
     pinMode(NSCS_MOTOR, OUTPUT);
@@ -72,7 +73,6 @@ void MotorControl::setPwmFreq(uint8_t p_pwmMode) const{
 }
 
 void MotorControl::mapHalfBridges() const{
-    
     spi3.transfer(PWM_MAP1_ADDR);
     spi3.transfer(MAPPING1); // HB1 and 2 to PWM1
     spi3.transfer(PWM_MAP2_ADDR);

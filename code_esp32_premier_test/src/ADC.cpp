@@ -13,9 +13,10 @@ SPIClass spi2(VSPI); //SPI2
 ADC::ADC(): m_adcValues{0.,0.,0.}{
     pinMode(DRDY_PIN, INPUT);
     
-
+    // clock for ADC chip (conversions)
     ledcSetup(channelClock, CLOCK_FREQ, clockRes);
     ledcAttachPin(CLOCK_OUT, channelClock);
+    
     spi2.begin(SPI_SCLK, SPI_MISO, SPI_MOSI);
 
     ADC::setGain();

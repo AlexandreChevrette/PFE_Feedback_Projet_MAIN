@@ -5,6 +5,14 @@
 #include <Arduino.h>
 #include <array>
 
+#define SPI_SCLK_MOTOR      7
+#define SPI_MISO_MOTOR      5
+#define SPI_MOSI_MOTOR      4    
+#define NSCS_MOTOR          8
+#define NFAULT_MOTOR        9
+#define NSLEEP_MOTOR        6
+
+
 #define DIRECTION_ADDR1     0x08
 #define DIRECTION_ADDR2     0x09
 
@@ -36,25 +44,31 @@
 #define PWM_FREQ_2000       0xFF
 #define SPI_SCLK_SPEED_MOT  1000000
 
+#define SYNC_RECT_ADDR      0x0D // Free-wheeling
+#define ENABLE_FREE_W       0xFF // 1111 1111
+
 #define READ_ADDRESS        0x40 // concat to address to read
 
 #define IC_STATUS_ADDR      0x00
 
-const int FRAME_SIZE_BYTES_MOT = 16;
 const int numberOfMotors = 4;
+
+std::array<uint8_t, numberOfMotors> pwmDutyAddress{PWM1_DUTY_ADDR, PWM2_DUTY_ADDR, PWM3_DUTY_ADDR, PWM4_DUTY_ADDR};
+std::array<uint8_t, numberOfMotors> directionAddress{DIRECTION_ADDR1, DIRECTION_ADDR1, DIRECTION_ADDR2, DIRECTION_ADDR2};
+
+const int FRAME_SIZE_BYTES_MOT = 16;
 
 class MotorControl{
     public:
         MotorControl();
+        ~MotorControl();
         void setPWM(size_t p_motorIndex, uint8_t p_pwmValue);
         void setForward(size_t p_motorIndex);
         void setReverse(size_t p_motorIndex);
-        // uint8_t getStatus();
+        uint8_t getStatus() const;
 
     private:
         std::array<uint8_t, numberOfMotors> m_pwmValues;
-        std::array<uint8_t, numberOfMotors> m_pwmDutyAddress;
-        std::array<uint8_t, numberOfMotors> m_directionAddress;
         byte m_direction1Values;
         byte m_direction2Values;
         void setDirection(size_t p_motorIndex, uint8_t newValue);
@@ -62,6 +76,7 @@ class MotorControl{
         void setMotorMode() const; 
         void enablePwmChannels() const; 
         void setPwmFreq(uint8_t p_pwmMode) const;
+        void enableSynchronousRectification() const;
         // page 82
 };
 

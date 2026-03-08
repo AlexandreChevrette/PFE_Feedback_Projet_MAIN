@@ -42,17 +42,16 @@ const int numberOfChannels = 3;
 class ADC{
     public:
         ADC();
-        // void reset() const;
-        void setGain() const; // set to one for this code
-        void setupChannels(uint8_t p_osrMode) const; // enable and differential
         void readData();
         const std::array<float, numberOfChannels>& getData() const;
-    
+
     private:
+        void setGain() const; // set to one for this code
         std::array<float, numberOfChannels> m_adcValues;
         void writeRegister(uint8_t p_reg, uint16_t p_value) const; 
         float convert24BitToVoltage(int32_t p_adcValue, float p_gain) const;
         void flushFrame() const;
+        void setupChannels(uint8_t p_osrMode) const; // enable and differential
         // uint16_t readRegister(uint8_t p_reg);
 };
 

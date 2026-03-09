@@ -13,10 +13,10 @@ class WheatstoneBridge{
 class PressureSensor{
     public:
         PressureSensor()= delete;
-        PressureSensor(float p_alpha, float p_beta); // see for coeff
+        PressureSensor(float p_alpha, float p_rMax); // see for coeff
         float convertRtoRopeTension(float p_resistance);
     private:
-        float m_alpha, m_beta;
+        float m_rMax, m_alpha;
 };
 
 

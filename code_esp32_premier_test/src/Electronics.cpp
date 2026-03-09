@@ -9,5 +9,10 @@ float WheatstoneBridge::convertDeltaVtoR(float p_voltage){
     return num/denum*m_R3; // see wiki wheastone bridge (I inverted p_voltage so negative sign)
 }
 
+PressureSensor::PressureSensor(float p_rMax, float p_alpha):
+                                m_rMax{p_rMax}, m_alpha{p_alpha}{}
 
+float PressureSensor::convertRtoRopeTension(float p_resistance){
+    return m_rMax/(m_alpha*p_resistance)-(1/m_alpha);
+}
 

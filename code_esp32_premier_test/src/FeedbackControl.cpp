@@ -18,7 +18,10 @@ void FeedbackControl::applyPID(MotorControl& p_motorControl, float p_currentRope
 
     float controlInput = m_pidP*error + m_pidI*m_errorSum[motorIndex-1];
 
-    controlInput >= 0 ? p_motorControl.setForward(motorIndex) : p_motorControl.setReverse(motorIndex);
+    if (error > 0.1) p_motorControl.setForward(motorIndex);
+    else if (error < -0.1) p_motorControl.setReverse(motorIndex);
+    else p_motorControl.cutPowerMotor(motorIndex);
+    
     uint8_t pwmDutyCycle = (uint8_t)std::abs(controlInput);
 
     //cap pwm

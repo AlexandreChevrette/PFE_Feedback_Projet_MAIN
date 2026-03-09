@@ -59,7 +59,7 @@ void ADC::writeRegister(uint8_t p_reg, uint16_t p_value) const
     }
 }
 
-void ADC::readData() 
+const std::array<float, numberOfChannels>& ADC::readData() 
 {
     uint32_t status = 0;
     for(int i=0;i<3;i++)
@@ -83,7 +83,8 @@ void ADC::readData()
     for(int i = 0; i < (FRAME_SIZE_BYTES_ADC - (3*(1+numberOfChannels))); i++){
         spi2.transfer(0);
     }
-
+    
+    return m_adcValues;
 }  
 
 float ADC::convert24BitToVoltage(int32_t p_adcValue, float p_gain) const

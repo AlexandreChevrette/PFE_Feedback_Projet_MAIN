@@ -43,7 +43,7 @@ class ADC{
     public:
         ADC();
         ~ADC();
-        void readData();
+        const std::array<float, numberOfChannels>& readData();
         const std::array<float, numberOfChannels>& getData() const;
         void resetSpiInterface() const;
         void setup();

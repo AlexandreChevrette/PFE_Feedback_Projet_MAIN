@@ -40,21 +40,25 @@ void ADC::writeRegister(uint8_t p_reg, uint16_t p_value) const
 {
     uint16_t cmd = CMD_WREG | (p_reg << 7) | 0;
 
-    uint8_t buffer[6] = {
+    uint8_t buffer[9] = {
         (uint8_t)(cmd >> 8),
         (uint8_t)(cmd),
         0x00,                 // padding (voir page 37)
 
         (uint8_t)(p_value >> 8),
         (uint8_t)(p_value),
-        0x00                  // padding
+        0x00,                  // padding
+
+        0x00, // EMPTY CRC
+        0x00,
+        0x00
     };
 
  
-    spi2.transfer(buffer, 6);
+    spi2.transfer(buffer, 9);
 
     // flush remaining frames
-    for(int i = 0; i < (FRAME_SIZE_BYTES_ADC - 6); i++){
+    for(int i = 0; i < (FRAME_SIZE_BYTES_ADC - 9); i++){
         spi2.transfer(0);
     }
 }

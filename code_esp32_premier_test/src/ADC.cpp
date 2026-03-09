@@ -10,7 +10,7 @@ const int clockRes = 1; // 1-bit res
 
 SPIClass spi2(VSPI); //SPI2
 
-ADC::ADC(): m_adcValues{0.,0.,0.}{}
+ADC::ADC(): m_adcValues{}{}
 
 void ADC::setup(){
     pinMode(DRDY_PIN, INPUT);

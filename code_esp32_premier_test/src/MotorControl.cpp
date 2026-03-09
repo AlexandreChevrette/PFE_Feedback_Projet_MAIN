@@ -8,7 +8,7 @@ SPIClass spi3(HSPI); //SPI3
 //PAGE 94 pour les bon registers
 //PAGE 105
 
-MotorControl::MotorControl(): m_pwmValues{0x00,0x00,0x00,0x00}, 
+MotorControl::MotorControl(): m_pwmValues{}, 
                               m_direction1Values{0x00},
                               m_direction2Values{0x00}{}
 

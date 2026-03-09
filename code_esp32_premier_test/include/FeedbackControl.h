@@ -15,14 +15,14 @@ class FeedbackControl{
         FeedbackControl();
         void setup();
         void updatePID(const MotorControl& p_motorControl, const std::array<float, numberOfChannels>& p_adcData);
-        void updateSetpoint(float p_cordeTension);
+        void updateSetpoint(size_t motorIndex, float p_cordeTension); 
         void setProportional(float p_value);
         void setIntegral(float p_value);
         void setDerivative(float p_value);
 
     private:
-        float m_pidP, m_pidI, m_pidD, m_setpoint;
-        std::array<float, numberOfChannels> m_errors;
+        float m_pidP, m_pidI, m_pidD;
+        std::array<float, numberOfChannels> m_errors, m_setpoints;
 };
 
 

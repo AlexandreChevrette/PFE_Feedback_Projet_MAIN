@@ -22,7 +22,7 @@ void ADC::setup(){
     spi2.begin(SPI_SCLK, SPI_MISO, SPI_MOSI);
     spi2.beginTransaction(SPISettings(SPI_SCLK_SPEED, MSBFIRST, SPI_MODE1)); 
     setGain();
-    setupChannels(OSR_16256); 
+    setupChannels(OSR_16384); 
     resetSpiInterface();
 }
 
@@ -100,9 +100,9 @@ void ADC::setGain() const{
 void ADC::setupChannels(uint8_t p_osrMode) const{
     // disable channel 3
     // page 45
-    uint8_t enable012 = 0b0111;
+    uint8_t enable0123 = 0b1111; // I keep the fourth adc because I don't know how it impacts spi
 
-    uint8_t firstByte = (0b0000 << 4) | enable012;
+    uint8_t firstByte = (0b0000 << 4) | enable0123;
 
     uint8_t secondByte = (0b000 << 5) | (p_osrMode << 2) | LOWPOWER;
     uint16_t value = firstByte << 8 | secondByte;

@@ -29,7 +29,7 @@
 #define OSR_2048        0b100  
 #define OSR_4096        0b101  
 #define OSR_8192        0b110  
-#define OSR_16256       0b111 
+#define OSR_16384       0b111 
 #define LOWPOWER        0b01  
 #define HIGHPOWER       0b10 
 

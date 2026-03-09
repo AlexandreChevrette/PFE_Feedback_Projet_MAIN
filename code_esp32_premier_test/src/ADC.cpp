@@ -113,40 +113,7 @@ const std::array<float, numberOfChannels>& ADC::getData() const{
     return m_adcValues;
 }
 
+ADC::~ADC(){
+    spi2.endTransaction();
+}
 
-// à voir, est-ce qu'il faut flush le register si on reset
-// void ADC::reset() const{
-//     uint8_t buffer[2] = {
-//             (uint8_t)(CMD_RESET >> 8),
-//             (uint8_t)(CMD_RESET), 
-//     };
-//     spi2.beginTransaction(SPISettings(SPI_SCLK_SPEED, MSBFIRST, SPI_MODE1)); 
-//     spi2.transfer(buffer, 2);
-//     spi2.endTransaction();
-//     delay(10);
-// }
-
-
-// put this function on hold, i don't really think its needed (flush register)
-// (difficult to run while take data in)
-// uint16_t ADC::readRegister(uint8_t p_reg)
-// {
-//     uint16_t cmd = CMD_RREG | (p_reg << 7) | 0;
-
-//     uint8_t buffer[2] = {
-//             (uint8_t)((cmd >> 8) & 0xFF),
-//             (uint8_t)(cmd & 0xFF),
-//     };
-
-//     uint16_t value = 0;
-
-//     spi2.beginTransaction(SPISettings(SPI_SCLK_SPEED, MSBFIRST, SPI_MODE1)); 
-
-//     spi2.transfer(buffer, 2);
-//     value |= spi2.transfer(0x00) << 8;
-//     value |= spi2.transfer(0x00);
-
-//     spi2.endTransaction();
-
-//     return value;
-// }

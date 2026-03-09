@@ -1,0 +1,29 @@
+#ifndef FEEDBACK_CONTROL_H_
+#define FEEDBACK_CONTROL_H_
+
+#include <Arduino.h>
+#include "MotorControl.h"
+#include "ADC.h"
+#include <array>
+
+#define PROPORTIONAL    0.2
+#define INTEGRAL        0
+#define DERIVATIVE      0
+
+class FeedbackControl{
+    public:
+        FeedbackControl();
+        void setup();
+        void updatePID(const MotorControl& p_motorControl, const std::array<float, numberOfChannels>& p_adcData);
+        void updateSetpoint(float p_cordeTension);
+        void setProportional(float p_value);
+        void setIntegral(float p_value);
+        void setDerivative(float p_value);
+
+    private:
+        float m_pidP, m_pidI, m_pidD, m_setpoint;
+        std::array<float, numberOfChannels> m_errors;
+};
+
+
+#endif 

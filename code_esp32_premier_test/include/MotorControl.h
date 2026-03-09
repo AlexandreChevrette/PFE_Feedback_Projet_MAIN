@@ -54,8 +54,8 @@
 
 const int numberOfMotors = 4;
 
-std::array<uint8_t, numberOfMotors> pwmDutyAddress{PWM1_DUTY_ADDR, PWM2_DUTY_ADDR, PWM3_DUTY_ADDR, PWM4_DUTY_ADDR};
-std::array<uint8_t, numberOfMotors> directionAddress{DIRECTION_ADDR1, DIRECTION_ADDR1, DIRECTION_ADDR2, DIRECTION_ADDR2};
+const std::array<uint8_t, numberOfMotors> pwmDutyAddress{PWM1_DUTY_ADDR, PWM2_DUTY_ADDR, PWM3_DUTY_ADDR, PWM4_DUTY_ADDR};
+const std::array<uint8_t, numberOfMotors> directionAddress{DIRECTION_ADDR1, DIRECTION_ADDR1, DIRECTION_ADDR2, DIRECTION_ADDR2};
 
 const int FRAME_SIZE_BYTES_MOT = 16;
 

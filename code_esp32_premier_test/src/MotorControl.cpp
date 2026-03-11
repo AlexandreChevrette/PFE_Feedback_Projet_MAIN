@@ -17,7 +17,7 @@ void MotorControl::setup(){
     digitalWrite(NSLEEP_MOTOR, HIGH);
     pinMode(NSCS_MOTOR, OUTPUT);
     digitalWrite(NSCS_MOTOR, LOW);
-    pinMode(NFAULT_MOTOR, INPUT);
+    pinMode(NFAULT_MOTOR, INPUT); // not used for now
 
     spi3.begin(SPI_SCLK_MOTOR, SPI_MISO_MOTOR, SPI_MOSI_MOTOR);
     spi3.beginTransaction(SPISettings(SPI_SCLK_SPEED_MOT, MSBFIRST, SPI_MODE1)); 

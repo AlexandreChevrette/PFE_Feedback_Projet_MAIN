@@ -9,14 +9,13 @@
 #include <array>
 
 
-class MainApp{
+class Application{
     public:
-        MainApp();
-        void setup();
-        void run();
-    private:
-        static void IRAM_ATTR drdyISR();
+        virtual void setup();
+        virtual void run();
+    protected:
         static volatile bool s_dataReady;
+        static void IRAM_ATTR drdyISR();
         ADC m_adc;
         MotorControl m_motorControl;
         FeedbackControl m_feedbackControl;
@@ -26,6 +25,12 @@ class MainApp{
         PressureSensor m_sensor1{0.0462, 200000};
         PressureSensor m_sensor2{0.0462, 200000};
         PressureSensor m_sensor3{0.0462, 200000};
+
+};
+
+class MainApp : public Application{
+    public:
+        MainApp();        
 };
 
 

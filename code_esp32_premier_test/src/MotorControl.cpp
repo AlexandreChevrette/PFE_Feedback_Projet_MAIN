@@ -39,6 +39,20 @@ void MotorControl::setPWM(size_t p_motorIndex, uint8_t p_pwmValue){
     }
 }
 
+void MotorControl::incrementPwm(size_t p_motorIndex){
+    if ((p_motorIndex < numberOfMotors+1) && (p_motorIndex > 0))
+    {
+        m_pwmValues[p_motorIndex-1] += 1;
+    }
+}
+
+void MotorControl::decrementPwm(size_t p_motorIndex){
+    if ((p_motorIndex < numberOfMotors+1) && (p_motorIndex > 0))
+    {
+        m_pwmValues[p_motorIndex-1] -= 1;
+    }
+}
+
 void MotorControl::setDirection(size_t p_motorIndex, uint8_t newValue)
 {
     if ((p_motorIndex < numberOfMotors + 1) && (p_motorIndex > 0))

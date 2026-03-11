@@ -68,6 +68,8 @@ class MotorControl{
         void setForward(size_t p_motorIndex);
         void setReverse(size_t p_motorIndex);
         void cutPowerMotor(size_t p_motorIndex);
+        void incrementPwm(size_t p_motorIndex);
+        void decrementPwm(size_t p_motorIndex);
         uint8_t getStatus() const;
 
     private:

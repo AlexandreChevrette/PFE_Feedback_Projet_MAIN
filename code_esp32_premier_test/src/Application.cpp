@@ -6,20 +6,20 @@
 #include "Electronics.h"
 #include <array>
 
-volatile bool MainApp::s_dataReady = false;
+volatile bool Application::s_dataReady = false;
 
-void IRAM_ATTR MainApp::drdyISR()
+void IRAM_ATTR Application::drdyISR()
 {
     s_dataReady = true;
 }
 
-void MainApp::setup(){
-    attachInterrupt(digitalPinToInterrupt(DRDY_PIN), MainApp::drdyISR, FALLING);
+void Application::setup(){
+    attachInterrupt(digitalPinToInterrupt(DRDY_PIN), Application::drdyISR, FALLING);
     m_adc.setup();
     m_motorControl.setup();
 }
 
-void MainApp::run(){
+void Application::run(){
         bool ready = s_dataReady; // safe practice according to Chat
 
         if (!ready) return;
@@ -38,3 +38,5 @@ void MainApp::run(){
         };
         m_feedbackControl.updateLoop(m_motorControl, currentRopeTension);
 }
+
+MainApp::MainApp(){};

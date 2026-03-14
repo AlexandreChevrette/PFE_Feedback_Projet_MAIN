@@ -20,5 +20,11 @@ class AdcTest : public Application{
         int m_currentAdc = 1;
 };
 
+class PidTest : public Application{
+    public:
+        void setup() override;
+        void run() override;
+};
+
 
 #endif

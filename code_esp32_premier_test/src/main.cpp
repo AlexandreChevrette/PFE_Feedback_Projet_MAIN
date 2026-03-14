@@ -4,6 +4,7 @@
 
 Adafruit_ADS1115 ads;
 
+int i = 150;
 
 int ENA = 5;   // PWM for motor speed
 int IN1 = 18;  // direction pin
@@ -15,7 +16,7 @@ int pwmRes = 8;      // 8-bit PWM
 
 float consigne = 2.5;
 float integral = 0;
-float proportionnel = 2;
+float proportionnel = 0.1;
 float output = 0;
 
 float erreurSum = 0;
@@ -73,11 +74,15 @@ void loop() {
   // Serial.println(erreur);
   erreurSum += erreur*integral;
   output += erreur*proportionnel+erreurSum;
-
+  if (output < output-155){
+    output = -255+155;
+  }
+  if (output > output + 155){
+      output = 255-155;
+  }
   if (output < 0) {
     digitalWrite(IN2, LOW);
     digitalWrite(IN1, HIGH);
-
     outputValue = abs(output)+160;
     ledcWrite(pwmChannel, outputValue);
     Serial.println(output-160);
@@ -89,5 +94,5 @@ void loop() {
     ledcWrite(pwmChannel, outputValue);
     Serial.println(output+150);
   }
-  delay(10);
+  delay(1);
 }

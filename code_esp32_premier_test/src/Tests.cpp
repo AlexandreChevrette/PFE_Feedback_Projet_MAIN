@@ -80,10 +80,11 @@ void PidTest::run(){
             m_feedbackControl.updateLoop(m_motorControl, currentRopeTension);
         }
 
-        if (Serial.available() >= 3){
+        if (Serial.available() >= 5) {
             uint8_t cmd = Serial.read();
-            uint16_t val;
-            Serial.readBytes((char*)&val, 2);
+
+            float val;
+            Serial.readBytes((char*)&val, 4);
 
             if (cmd == 1){
                 m_feedbackControl.setProportional((float)val);

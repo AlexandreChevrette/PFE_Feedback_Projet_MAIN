@@ -14,18 +14,13 @@ int pwmChannel = 0;
 int pwmFreq = 20000; // 20 kHz
 int pwmRes = 8;      // 8-bit PWM
 
-float consigne = 2.5;
-float integral = 0; //0.1
-float proportionnel = 5; //20
-float differentiel = 0; //500000
+int16_t adc1 = 0;
+int pwm = 0;
+int pwm2 = 0;
+float consigne = 0;
+float mesure = 0;
+int flag = 0;
 
-float output = 0;
-float erreurSum = 0;
-float erreurDif = 0;
-float tim1 = 0;
-float tim2 = 0;
-float erreur2 = 0;
-float dt = 0;
 
 float maxBitPWM = 255;
 float maxDutyCycle = 255; // For 8V DC operation
@@ -48,56 +43,64 @@ void setup() {
     Serial.println("Failed to initialize ADS1115.");
     while (1);
   }
-  tim1 = millis();
 }
 
 
 void loop() {
   int16_t adc1 = ads.readADC_SingleEnded(1);
   float mesure = (float)adc1/32768.*4.096;
-  // Serial.println(mesure);
-  float erreur = mesure - consigne;
-  // Serial.println(erreur);
 
-
-  
-  
-  output = erreur*proportionnel + integral*erreurSum + differentiel*erreurDif;
-  output = constrain(output, -255, 255);
 
   if (Serial.available() > 0) {
-    consigne = Serial.parseInt()/10.;   // reads the integer sent
+    pwm = Serial.parseInt();   // reads the integer sent
     Serial.print("You entered: ");
-    Serial.println(consigne);
+    Serial.println(pwm);
   }
 
-  if (output < 0) {
-    digitalWrite(IN2, LOW);
-    digitalWrite(IN1, HIGH);
-    outputValue = abs(output)+160;
-    ledcWrite(pwmChannel, outputValue);
-    Serial.print("Consigne = ");
-    Serial.print(consigne);
-    Serial.print("    Mesure = ");
-    Serial.print(mesure);
-    Serial.print("    Erreur Dif = ");
-    Serial.print(erreurDif);
-    Serial.print("    Output = ");
-    Serial.println(output-160);
-  }
-  else if (output >= 0){
+  if (pwm != pwm2){
+    if (pwm < pwm2){
+      digitalWrite(IN2, LOW);
+      digitalWrite(IN1, HIGH);
+      ledcWrite(pwmChannel, 160);
+      delay((pwm2 - pwm)*7);
+    }
     digitalWrite(IN2, HIGH);
     digitalWrite(IN1, LOW);
-    outputValue = output+150;
-    ledcWrite(pwmChannel, outputValue);
-    Serial.print("Consigne = ");
-    Serial.print(consigne);
-    Serial.print("    Mesure = ");
-    Serial.print(mesure);
-    Serial.print("    Erreur Dif = ");
-    Serial.print(erreurDif);
-    Serial.print("    Output = ");
-    Serial.println(output+150);
+    ledcWrite(pwmChannel, pwm);
+    delay(500);
+    adc1 = ads.readADC_SingleEnded(1);
+    consigne = (float)adc1/32768.*4.096;
+    pwm2 = pwm;
   }
+
+  adc1 = ads.readADC_SingleEnded(1);
+  mesure = (float)adc1/32768.*4.096;
+
+  if (mesure < consigne - 0.10){
+    flag = 1;
+  }
+
+  if (flag == 1 && mesure < consigne){
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN1, HIGH);
+    ledcWrite(pwmChannel, 160);
+  }
+
+  else if (flag == 1 && mesure >= consigne){
+    digitalWrite(IN2, HIGH);
+    digitalWrite(IN1, LOW);
+    ledcWrite(pwmChannel, pwm);
+    delay(500);
+    int16_t adc1 = ads.readADC_SingleEnded(1);
+    consigne = (float)adc1/32768.*4.096;
+    flag = 0;
+  }
+
+  Serial.print("Consigne = ");
+  Serial.print(consigne);
+  Serial.print("     Mesure = ");
+  Serial.println(mesure);
+
+
   delay(1);
 }

@@ -59,22 +59,7 @@ void loop() {
   float erreur = mesure - consigne;
   // Serial.println(erreur);
 
-  tim2 = millis();
-  dt = (tim2 - tim1)/1000.0;
 
-  if (abs(erreur/consigne) < 0.20){
-    erreurSum += erreur*dt;
-  }
-  else{
-    erreurSum = 0;
-  }
-
-  if (dt > 0) {
-    erreurDif = (erreur - erreur2) / dt;
-  }
-
-  tim1 = tim2;
-  erreur2 = erreur;
   
   
   output = erreur*proportionnel + integral*erreurSum + differentiel*erreurDif;

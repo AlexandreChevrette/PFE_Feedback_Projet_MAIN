@@ -14,8 +14,8 @@ void IRAM_ATTR Application::drdyISR()
 }
 
 void Application::setup(){
-    attachInterrupt(digitalPinToInterrupt(DRDY_PIN), Application::drdyISR, FALLING);
     m_adc.setup();
+    attachInterrupt(digitalPinToInterrupt(DRDY_PIN), Application::drdyISR, FALLING);
     m_motorControl.setup();
 }
 

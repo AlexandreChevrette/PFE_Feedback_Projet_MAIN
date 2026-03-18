@@ -35,17 +35,17 @@ void MotorTest::run(){
 
 
 void AdcTest::setup(){
+    m_adc.setup();
     attachInterrupt(digitalPinToInterrupt(DRDY_PIN), Application::drdyISR, FALLING);
     Serial.begin(115200);
     delay(1000); // give serial time to start
     Serial.println("Hi!");
-    m_adc.setup();
+    
     
 }
 
 void AdcTest::run(){
     bool ready = s_dataReady; // safe practice according to Chat
-    Serial.println(ready);
     if (ready){
         const std::array<float, numberOfChannels>& adcValues = m_adc.readData();
         Serial.println(adcValues[0]);

@@ -3,19 +3,20 @@
 
 #include <Arduino.h>
 #include <stdint.h>
+#include <SPI.h>
 #include <array>
 
-#define DRDY_PIN        14
-#define SPI_MISO        13
-#define SPI_MOSI        11
-#define SPI_SCLK        12
 #define CLOCK_OUT       10
-#define CLOCK_FREQ      4096000
+#define SPI_MOSI        11
+#define SPI_MISO        12
+#define SPI_SCLK        13
+#define DRDY_PIN        14
+#define CLOCK_FREQ      1000000 // recommanded 4096000, but i lower my clock to not overshoot 4150000
 #define SPI_SCLK_SPEED  1000000
 
 #define CMD_RESET       0x0011
 #define CMD_RREG        0x2000
-#define CMD_WREG        0x4000
+#define CMD_WREG        0x6000
 #define CMD_NULL        0x0000
 
 #define GAIN_REG        0x04

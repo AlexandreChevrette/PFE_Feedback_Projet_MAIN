@@ -3,16 +3,15 @@
 #include "Tests.h"
 
 
-MainApp mainApp;
+// MainApp mainApp;
 // MotorTest motorTest;
-// AdcTest adcTest;
+AdcTest adcTest;
 // PidTest pidTest;
 
 void setup() {
-    mainApp.setup();
+    adcTest.setup();
 }
 
-void loop(){
-    mainApp.run();
+void loop() {
+    adcTest.run();
 }
-

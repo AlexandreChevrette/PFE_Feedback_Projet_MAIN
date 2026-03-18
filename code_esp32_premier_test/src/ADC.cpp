@@ -8,7 +8,7 @@ const int channelClock = 0;
 const int clockRes = 1; // 1-bit res
 
 
-SPIClass spi2(VSPI); //SPI2
+SPIClass spi2(SPI); //SPI2
 
 ADC::ADC(): m_adcValues{}{}
 

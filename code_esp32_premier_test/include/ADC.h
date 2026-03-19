@@ -11,8 +11,9 @@
 #define SPI_MISO        12
 #define SPI_SCLK        13
 #define DRDY_PIN        14
-#define CLOCK_FREQ      1000000 // recommanded 4096000, but i lower my clock to not overshoot 4150000
-#define SPI_SCLK_SPEED  1000000
+#define CS_PIN          21
+#define CLOCK_FREQ      8192000 
+#define SPI_SCLK_SPEED  8192000
 
 #define CMD_RESET       0x0011
 #define CMD_RREG        0x2000
@@ -37,26 +38,30 @@
 
 const int FRAME_SIZE_BYTES_ADC = 18; // for 24 bits word length
 
-const int numberOfChannels = 3;
+const int numberOfChannels = 4;
 
 
 class ADC{
     public:
-        ADC();
+        ADC(SPIClass*);
         ~ADC();
         const std::array<float, numberOfChannels>& readData();
         const std::array<float, numberOfChannels>& getData() const;
         void resetSpiInterface() const;
         void setup();
+        void flushFrame() const;
+        void reset() const;
+        void readID() const;
 
     private:
         void setGain() const; // set to one for this code
         std::array<float, numberOfChannels> m_adcValues;
         void writeRegister(uint8_t p_reg, uint16_t p_value) const; 
         float convert24BitToVoltage(int32_t p_adcValue, float p_gain) const;
-        void flushFrame() const;
+        
         void setupChannels(uint8_t p_osrMode) const; // enable and differential
         // uint16_t readRegister(uint8_t p_reg);
+        SPIClass* m_spi;
 };
 
 

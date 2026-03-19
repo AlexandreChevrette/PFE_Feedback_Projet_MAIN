@@ -4,29 +4,82 @@
 #include <SPI.h>
 #include <cmath>
 
-const int channelClock = 0;
-const int clockRes = 1; // 1-bit res
 
-SPIClass spi2; //SPI2
-
-ADC::ADC(): m_adcValues{}{}
+ADC::ADC(SPIClass* p_spi): m_adcValues{}, m_spi{p_spi}{}
 
 void ADC::setup(){
     pinMode(DRDY_PIN, INPUT);
+    pinMode(CS_PIN, OUTPUT);
+    digitalWrite(CS_PIN, HIGH);
     Serial.println("Hello!");
     // clock for ADC chip (conversions)
-    ledcSetup(channelClock, CLOCK_FREQ, clockRes);
-    ledcAttachPin(CLOCK_OUT, channelClock);
-    ledcWrite(channelClock, (1 << (clockRes - 1))); // 50% duty cycle
-    
-    spi2.begin(SPI_SCLK, SPI_MISO, SPI_MOSI); 
+    ledcSetup(1, CLOCK_FREQ, 1);
+    ledcAttachPin(CLOCK_OUT, 1);
+    ledcWrite(1, 1); // 50% duty cycle
+    delay(100); // let clock stabilize before talking to ADC
 
+    m_spi->begin(SPI_SCLK, SPI_MISO, SPI_MOSI, CS_PIN); 
+    delay(100); // let clock stabilize before talking to ADC
+
+    // reset();
+    // delay(10);
+    
     // setGain();
-    // setupChannels(OSR_16384);
-    resetSpiInterface();
+    setupChannels(OSR_16384);
+    // resetSpiInterface();
 }
 
+void ADC::readID() const {
+    // RREG command: 0b001a aaaa 000n nnnn
+    // ID register = address 0x00 → cmd = 0x2000
+    digitalWrite(CS_PIN, LOW);
+    m_spi->beginTransaction(SPISettings(SPI_SCLK_SPEED, MSBFIRST, SPI_MODE1));
+    
+    // Send RREG command in first frame
+    m_spi->transfer(0x20);
+    m_spi->transfer(0x00);
+    m_spi->transfer(0x00);
+    for(int i = 0; i < 15; i++) m_spi->transfer(0x00); // flush rest of frame
+    
+    m_spi->endTransaction();
+    digitalWrite(CS_PIN, HIGH);
 
+    // Response comes in NEXT frame
+    while(digitalRead(DRDY_PIN) == HIGH);
+    digitalWrite(CS_PIN, LOW);
+    m_spi->beginTransaction(SPISettings(SPI_SCLK_SPEED, MSBFIRST, SPI_MODE1));
+    
+    uint8_t b0 = m_spi->transfer(0x00); // STATUS byte 0
+    uint8_t b1 = m_spi->transfer(0x00); // STATUS byte 1  
+    uint8_t b2 = m_spi->transfer(0x00); // STATUS byte 2 — response word here
+    uint8_t b3 = m_spi->transfer(0x00); // ID high byte
+    uint8_t b4 = m_spi->transfer(0x00); // ID low byte
+    for(int i = 0; i < 13; i++) m_spi->transfer(0x00);
+    
+    m_spi->endTransaction();
+    digitalWrite(CS_PIN, HIGH);
+
+    Serial.printf("STATUS: 0x%02X%02X%02X\n", b0, b1, b2);
+    Serial.printf("ID reg: 0x%02X%02X\n", b3, b4);
+    Serial.println("Expected ID: 0x2284");
+}
+
+void ADC::reset() const{
+    digitalWrite(CS_PIN, LOW);
+    m_spi->beginTransaction(SPISettings(SPI_SCLK_SPEED, MSBFIRST, SPI_MODE1));
+
+    m_spi->transfer(0x00);
+    m_spi->transfer(0x11);
+    m_spi->transfer(0x00);
+
+    // flush remaining frames
+    for(int i = 0; i < (FRAME_SIZE_BYTES_ADC - 3); i++){
+        m_spi->transfer(0x00);
+        Serial.println("emptying data line");
+    }
+    m_spi->endTransaction();
+    digitalWrite(CS_PIN, HIGH);
+}
 
 
 void ADC::resetSpiInterface() const{
@@ -36,14 +89,19 @@ void ADC::resetSpiInterface() const{
 
 void ADC::flushFrame() const
 {
-    for(int i=0;i<15;i++)
-        spi2.transfer(0);
+    digitalWrite(CS_PIN, LOW);
+    m_spi->beginTransaction(SPISettings(SPI_SCLK_SPEED, MSBFIRST, SPI_MODE1));
+    for(int i=0;i<18;i++)
+        m_spi->transfer(0x00);
+    m_spi->endTransaction();
+    digitalWrite(CS_PIN, HIGH);
 }
 
 void ADC::writeRegister(uint8_t p_reg, uint16_t p_value) const
 {   
-    spi2.beginTransaction(SPISettings(SPI_SCLK_SPEED, MSBFIRST, SPI_MODE1));
-    uint16_t cmd = CMD_WREG | (p_reg << 8);
+    digitalWrite(CS_PIN, LOW);
+    m_spi->beginTransaction(SPISettings(SPI_SCLK_SPEED, MSBFIRST, SPI_MODE1));
+    uint16_t cmd = CMD_WREG | (p_reg << 7) | 0x00; // 0x00 = write 1 register
 
     uint8_t buffer[9] = {
         (uint8_t)(cmd >> 8),
@@ -66,34 +124,38 @@ void ADC::writeRegister(uint8_t p_reg, uint16_t p_value) const
     }
     Serial.println();
  
-    spi2.transfer(buffer, 9);
+    m_spi->transfer(buffer, 9);
 
     // flush remaining frames
     for(int i = 0; i < (FRAME_SIZE_BYTES_ADC - 9); i++){
-        spi2.transfer(0);
+        m_spi->transfer(0);
         Serial.println("emptying data line");
     }
-    spi2.endTransaction();
+    m_spi->endTransaction();
+    digitalWrite(CS_PIN, HIGH);
 }
 
 const std::array<float, numberOfChannels>& ADC::readData() 
 {
-    // Frame 2 : vraies données
-    spi2.beginTransaction(SPISettings(SPI_SCLK_SPEED, MSBFIRST, SPI_MODE1));
 
+    
+    // Frame 2 : vraies données
+    m_spi->beginTransaction(SPISettings(SPI_SCLK_SPEED, MSBFIRST, SPI_MODE1));
+    digitalWrite(CS_PIN, LOW);
+    // delayMicroseconds(2);
     // Status (3 bytes)
-    spi2.transfer(0x00);
-    spi2.transfer(0x00);
-    spi2.transfer(0x00);
+    m_spi->transfer(0x00);
+    m_spi->transfer(0x00);
+    m_spi->transfer(0x00);
 
     // 4 canaux — même si tu n'en utilises que 3, tu DOIS lire les 4
     for(int ch = 0; ch < 4; ch++) {
         int32_t value = 0;
-        value |= (int32_t)spi2.transfer(0x00) << 16;
-        value |= (int32_t)spi2.transfer(0x00) << 8;
-        value |= (int32_t)spi2.transfer(0x00);
-        Serial.println(value);
-        if(value & 0x800000)
+        value |= (int32_t)m_spi->transfer(0x00) << 16;
+        value |= (int32_t)m_spi->transfer(0x00) << 8;
+        value |= (int32_t)m_spi->transfer(0x00);
+        Serial.println(value, HEX);
+        if(value & 0x800000)// Max value
             value |= 0xFF000000;
         
 
@@ -101,12 +163,14 @@ const std::array<float, numberOfChannels>& ADC::readData()
             m_adcValues[ch] = convert24BitToVoltage(value, 1.f);
     }
 
-    // CRC (3 bytes) — flush
-    spi2.transfer(0x00);
-    spi2.transfer(0x00);
-    spi2.transfer(0x00);
+    // // CRC (3 bytes) — flush
+    // m_spi->transfer(0x00);
+    // m_spi->transfer(0x00);
+    // m_spi->transfer(0x00);
 
-    spi2.endTransaction();
+    digitalWrite(CS_PIN, HIGH);
+    m_spi->endTransaction();
+    
     return m_adcValues;
 }
 float ADC::convert24BitToVoltage(int32_t p_adcValue, float p_gain) const

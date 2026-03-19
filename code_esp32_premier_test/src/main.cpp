@@ -2,6 +2,7 @@
 #include "ADC.h"
 #include "SPI.h"
 #include "array"
+#include "WiFi.h"
 #include "MotorControl.h"
 SPIClass spiADC(FSPI);
 ADC adc(&spiADC);
@@ -11,6 +12,12 @@ MotorControl motorControl;
 std::array<float, numberOfChannels> adcValues;
 
 void setup(){
+
+    // à vérifier
+    WiFi.mode(WIFI_OFF);
+    btStop();
+
+
     Serial.begin(115200);
     adc.setup();
     motorControl.setup();

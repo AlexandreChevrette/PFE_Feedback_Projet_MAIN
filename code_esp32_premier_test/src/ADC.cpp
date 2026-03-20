@@ -21,12 +21,7 @@ void ADC::setup(){
     m_spi->begin(SPI_SCLK, SPI_MISO, SPI_MOSI, CS_PIN); 
     delay(100); // let clock stabilize before talking to ADC
 
-    // reset();
-    // delay(10);
-    
-    // setGain();
     setupChannels(OSR_16384);
-    // resetSpiInterface();
 }
 
 void ADC::readID() const {
@@ -137,13 +132,9 @@ void ADC::writeRegister(uint8_t p_reg, uint16_t p_value) const
 
 const std::array<float, numberOfChannels>& ADC::readData() 
 {
-
-    
-    // Frame 2 : vraies données
     m_spi->beginTransaction(SPISettings(SPI_SCLK_SPEED, MSBFIRST, SPI_MODE1));
     digitalWrite(CS_PIN, LOW);
-    // delayMicroseconds(2);
-    // Status (3 bytes)
+
     m_spi->transfer(0x00);
     m_spi->transfer(0x00);
     m_spi->transfer(0x00);
@@ -154,19 +145,14 @@ const std::array<float, numberOfChannels>& ADC::readData()
         value |= (int32_t)m_spi->transfer(0x00) << 16;
         value |= (int32_t)m_spi->transfer(0x00) << 8;
         value |= (int32_t)m_spi->transfer(0x00);
-        Serial.println(value, HEX);
+
         if(value & 0x800000)// Max value
             value |= 0xFF000000;
         
 
-        if(ch < numberOfChannels)
-            m_adcValues[ch] = convert24BitToVoltage(value, 1.f);
+        if(ch > 0)
+            m_adcValues[ch-1] = convert24BitToVoltage(value, 1.f);
     }
-
-    // // CRC (3 bytes) — flush
-    // m_spi->transfer(0x00);
-    // m_spi->transfer(0x00);
-    // m_spi->transfer(0x00);
 
     digitalWrite(CS_PIN, HIGH);
     m_spi->endTransaction();
@@ -186,7 +172,7 @@ void ADC::setGain() const{
 void ADC::setupChannels(uint8_t p_osrMode) const{
     // disable channel 3
     // page 45
-    uint8_t enable0123 = 0b1111; // I keep the fourth adc because I don't know how it impacts spi
+    uint8_t enable0123 = 0b1110; //i
 
     uint8_t firstByte = (0b0000 << 4) | enable0123;
 

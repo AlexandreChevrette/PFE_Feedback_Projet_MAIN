@@ -38,7 +38,7 @@
 
 const int FRAME_SIZE_BYTES_ADC = 18; // for 24 bits word length
 
-const int numberOfChannels = 4;
+const int numberOfChannels = 3;
 
 
 class ADC{

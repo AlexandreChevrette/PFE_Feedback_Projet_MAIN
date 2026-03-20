@@ -7,11 +7,14 @@
 #include "FeedbackControl.h"
 #include "Electronics.h"
 #include <array>
-
+#include "BluetoothComm.h"
 
 class Application{
     public:
-        Application(ADC*, MotorControl*, FeedbackControl*, WheatstoneBridge*,WheatstoneBridge*,WheatstoneBridge*, PressureSensor*, PressureSensor*, PressureSensor*);
+        Application(ADC*, MotorControl*, FeedbackControl*, 
+                    WheatstoneBridge*,WheatstoneBridge*,WheatstoneBridge*, 
+                    PressureSensor*, PressureSensor*, PressureSensor*,
+                    Bluetooth*);
         virtual void setup();
         virtual void run();
     protected:
@@ -26,14 +29,9 @@ class Application{
         PressureSensor* m_sensor1;
         PressureSensor* m_sensor2;
         PressureSensor* m_sensor3;
+        Bluetooth* m_bluetooth;
 
 };
-
-// class MainApp : public Application{
-//     public:
-//         MainApp();        
-// };
-
 
 
 #endif

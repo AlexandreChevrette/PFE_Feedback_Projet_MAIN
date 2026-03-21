@@ -67,6 +67,7 @@ class CharacteristicCallbacks : public BLECharacteristicCallbacks {
                 m_fc->setIntegral(gains[1]);
                 m_fc->setDerivative(gains[2]);
             }
+
         }
 
     private:

@@ -1,15 +1,23 @@
 """
 ESP32 BLE Monitor
 A GUI application to connect and monitor ESP32 BLE data.
-Requires: pip install bleak
+Requires: pip install bleak matplotlib
 """
 
 import tkinter as tk
-from tkinter import ttk, scrolledtext, messagebox
+from tkinter import ttk, scrolledtext, messagebox, filedialog
 import asyncio
 import threading
 from bleak import BleakClient, BleakScanner
 from datetime import datetime
+import csv
+import collections
+
+import matplotlib
+matplotlib.use("TkAgg")
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.ticker as ticker
 
 # ── BLE config ────────────────────────────────────────────────────────────────
 DEVICE_NAME         = "ESP32-BLE"
@@ -31,6 +39,13 @@ FONT_LABEL  = ("Courier New", 9, "bold")
 FONT_TITLE  = ("Courier New", 13, "bold")
 FONT_VALUE  = ("Courier New", 14, "bold")
 
+# ── Graph config ──────────────────────────────────────────────────────────────
+MAX_POINTS      = 300          # rolling window length
+CH_COLORS       = ["#00e5ff", "#00e676", "#ffab40"]   # CH1, CH2, CH3
+SETPOINT_COLORS = ["#4fc3f7", "#69f0ae", "#ffd54f"]   # lighter dashed variants
+GRAPH_BG        = "#111113"
+GRAPH_AXES_BG   = "#161618"
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 class BLEManager:
@@ -50,7 +65,6 @@ class BLEManager:
         asyncio.set_event_loop(self.loop)
         self.loop.run_forever()
 
-    # ── public API (called from GUI thread) ───────────────────────────────────
     def connect(self):
         asyncio.run_coroutine_threadsafe(self._connect(), self.loop)
 
@@ -65,7 +79,6 @@ class BLEManager:
     def connected(self):
         return self._connected
 
-    # ── async internals ───────────────────────────────────────────────────────
     async def _connect(self):
         self.on_status("scanning", f"Scanning for {DEVICE_NAME}…")
         try:
@@ -73,14 +86,12 @@ class BLEManager:
             if not device:
                 self.on_status("error", f"{DEVICE_NAME} not found. Is it powered on?")
                 return
-
             self.on_status("connecting", f"Found {device.address} — connecting…")
             self.client = BleakClient(device, disconnected_callback=self._on_disconnect)
             await self.client.connect()
             await self.client.start_notify(CHARACTERISTIC_UUID, self._on_notify)
             self._connected = True
             self.on_status("connected", f"Connected to {device.address}")
-
         except Exception as e:
             self.on_status("error", f"Connection failed: {e}")
 
@@ -94,8 +105,7 @@ class BLEManager:
     async def _send(self, message: str):
         try:
             await self.client.write_gatt_char(
-                CHARACTERISTIC_UUID, message.encode(), response=True 
-            )
+                CHARACTERISTIC_UUID, message.encode(), response=True)
         except Exception as e:
             self.on_status("error", f"Send failed: {e}")
 
@@ -109,10 +119,6 @@ class BLEManager:
 
 # ══════════════════════════════════════════════════════════════════════════════
 def parse_payload(raw: str) -> dict:
-    """
-    Parse: TENSION:v1,v2,v3|PWM:v1,v2,v3|SETPOINTS:v1,v2,v3|PID:p,i,d
-    Returns dict of label → list[float], or empty dict on failure.
-    """
     result = {}
     try:
         for section in raw.split("|"):
@@ -127,16 +133,12 @@ def parse_payload(raw: str) -> dict:
 
 # ══════════════════════════════════════════════════════════════════════════════
 class ValueCard(tk.Frame):
-    """A single labelled card showing up to 3 float values."""
-
     def __init__(self, parent, title, channel_labels, color=ACCENT, **kwargs):
         super().__init__(parent, bg=PANEL, highlightbackground=BORDER,
                          highlightthickness=1, **kwargs)
+        self._color = color
+        self._vars  = []
 
-        self._color  = color
-        self._vars   = []
-
-        # Title bar
         title_bar = tk.Frame(self, bg=color, height=3)
         title_bar.pack(fill="x", side="top")
 
@@ -152,10 +154,8 @@ class ValueCard(tk.Frame):
         for lbl in channel_labels:
             col = tk.Frame(row, bg=PANEL)
             col.pack(side="left", expand=True, fill="x", padx=4)
-
             tk.Label(col, text=lbl, font=("Courier New", 8),
                      bg=PANEL, fg=TEXT_DIM).pack()
-
             var = tk.StringVar(value="—")
             self._vars.append(var)
             tk.Label(col, textvariable=var, font=FONT_VALUE,
@@ -175,20 +175,14 @@ class ValueCard(tk.Frame):
 
 # ══════════════════════════════════════════════════════════════════════════════
 class ControlPanel(tk.Frame):
-    """
-    A collapsible panel with labelled float inputs and a Send button.
-    on_send(values: list[float]) is called when the user submits.
-    """
-
     def __init__(self, parent, title, field_labels, color, on_send, **kwargs):
         super().__init__(parent, bg=BG, **kwargs)
-        self._color    = color
-        self._on_send  = on_send
-        self._expanded = True
-        self._entries  = []
+        self._color        = color
+        self._on_send      = on_send
+        self._expanded     = True
+        self._entries      = []
         self._field_labels = field_labels
 
-        # ── header row (click to collapse) ────────────────────────────────
         hdr = tk.Frame(self, bg=PANEL, highlightbackground=BORDER,
                        highlightthickness=1)
         hdr.pack(fill="x")
@@ -206,7 +200,6 @@ class ControlPanel(tk.Frame):
         hdr.bind("<Button-1>", self._toggle)
         self._toggle_lbl.bind("<Button-1>", self._toggle)
 
-        # ── body ──────────────────────────────────────────────────────────
         self._body = tk.Frame(self, bg=PANEL, highlightbackground=BORDER,
                               highlightthickness=1, padx=14, pady=12)
         self._body.pack(fill="x", pady=(1, 0))
@@ -217,10 +210,8 @@ class ControlPanel(tk.Frame):
         for lbl in field_labels:
             col = tk.Frame(fields_row, bg=PANEL)
             col.pack(side="left", expand=True, fill="x", padx=6)
-
             tk.Label(col, text=lbl, font=("Courier New", 8),
                      bg=PANEL, fg=TEXT_DIM).pack(anchor="w")
-
             entry = tk.Entry(col, bg=BG, fg=TEXT, insertbackground=color,
                              relief="flat", font=FONT_MONO,
                              highlightbackground=BORDER, highlightthickness=1,
@@ -232,7 +223,6 @@ class ControlPanel(tk.Frame):
             entry.bind("<Return>",   lambda e: self._send())
             self._entries.append(entry)
 
-        # send button
         btn_row = tk.Frame(self._body, bg=PANEL)
         btn_row.pack(fill="x", pady=(10, 0))
 
@@ -247,7 +237,6 @@ class ControlPanel(tk.Frame):
         self._send_btn.bind("<Enter>", lambda e: self._send_btn.config(bg=color, fg=BG))
         self._send_btn.bind("<Leave>", lambda e: self._send_btn.config(bg=PANEL, fg=color))
 
-        # reset button
         reset_btn = tk.Button(
             btn_row, text="⟳  RESET",
             command=self._reset,
@@ -277,8 +266,7 @@ class ControlPanel(tk.Frame):
                 entry.config(highlightbackground=DANGER)
                 messagebox.showerror(
                     "Invalid input",
-                    f"'{raw}' is not a valid number for {self._field_labels[i]}."
-                )
+                    f"'{raw}' is not a valid number for {self._field_labels[i]}.")
                 return
         self._on_send(values)
 
@@ -288,7 +276,6 @@ class ControlPanel(tk.Frame):
             entry.insert(0, "0.00")
 
     def set_values(self, values: list):
-        """Pre-fill entries from incoming ESP32 data."""
         for i, entry in enumerate(self._entries):
             try:
                 entry.delete(0, "end")
@@ -304,21 +291,204 @@ class ControlPanel(tk.Frame):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+class LiveGraph(tk.Frame):
+    """
+    Three vertically stacked subplots — one per tension channel.
+    Each subplot also shows the corresponding setpoint as a dashed line.
+    """
+
+    def __init__(self, parent, **kwargs):
+        super().__init__(parent, bg=PANEL, highlightbackground=BORDER,
+                         highlightthickness=1, **kwargs)
+
+        # ── header bar ────────────────────────────────────────────────────
+        hdr = tk.Frame(self, bg=BORDER, height=24)
+        hdr.pack(fill="x")
+        hdr.pack_propagate(False)
+
+        tk.Label(hdr, text="  LIVE GRAPH  —  STRING TENSION",
+                 font=("Courier New", 8, "bold"),
+                 bg=BORDER, fg=TEXT_DIM).pack(side="left", pady=4)
+
+        # acquisition controls inside the header
+        ctrl = tk.Frame(hdr, bg=BORDER)
+        ctrl.pack(side="right", padx=8)
+
+        self._acq_running = False
+
+        self._btn_start = tk.Button(
+            ctrl, text="▶  START ACQ",
+            command=self._start_acq,
+            bg=BORDER, fg=SUCCESS, activebackground=SUCCESS, activeforeground=BG,
+            relief="flat", font=("Courier New", 8, "bold"), padx=8, pady=2,
+            highlightbackground=SUCCESS, highlightthickness=1, cursor="hand2",
+        )
+        self._btn_start.pack(side="left", padx=(0, 4))
+        self._btn_start.bind("<Enter>", lambda e: self._btn_start.config(bg=SUCCESS, fg=BG))
+        self._btn_start.bind("<Leave>", lambda e: self._btn_start.config(bg=BORDER, fg=SUCCESS))
+
+        self._btn_stop = tk.Button(
+            ctrl, text="■  STOP",
+            command=self._stop_acq,
+            bg=BORDER, fg=DANGER, activebackground=DANGER, activeforeground=BG,
+            relief="flat", font=("Courier New", 8, "bold"), padx=8, pady=2,
+            highlightbackground=BORDER, highlightthickness=1, cursor="hand2",
+            state="disabled",
+        )
+        self._btn_stop.pack(side="left", padx=(0, 4))
+        self._btn_stop.bind("<Enter>", lambda e: self._btn_stop.config(bg=DANGER, fg=BG)
+                            if self._acq_running else None)
+        self._btn_stop.bind("<Leave>", lambda e: self._btn_stop.config(bg=BORDER, fg=DANGER)
+                            if self._acq_running else None)
+
+        # status pill
+        self._acq_dot = tk.Label(ctrl, text="●", font=("Courier New", 10),
+                                 bg=BORDER, fg=BORDER)
+        self._acq_dot.pack(side="left", padx=(2, 0))
+
+        # ── matplotlib figure ──────────────────────────────────────────────
+        self._fig = Figure(figsize=(8, 3.8), dpi=96,
+                           facecolor=GRAPH_BG, tight_layout=True)
+        self._fig.subplots_adjust(hspace=0.12, left=0.08,
+                                  right=0.97, top=0.96, bottom=0.10)
+
+        self._axes = []
+        for i in range(3):
+            ax = self._fig.add_subplot(3, 1, i + 1)
+            ax.set_facecolor(GRAPH_AXES_BG)
+            ax.tick_params(colors=TEXT_DIM, labelsize=7)
+            ax.set_ylabel(f"CH {i+1} (N)", color=CH_COLORS[i],
+                          fontsize=7, labelpad=4)
+            for spine in ax.spines.values():
+                spine.set_edgecolor(BORDER)
+            ax.xaxis.set_major_locator(ticker.AutoLocator())
+            ax.yaxis.set_major_locator(ticker.MaxNLocator(4))
+            ax.grid(True, color=BORDER, linewidth=0.5, linestyle="--", alpha=0.6)
+            self._axes.append(ax)
+
+        self._axes[-1].set_xlabel("samples", color=TEXT_DIM, fontsize=7)
+        for ax in self._axes[:-1]:
+            ax.tick_params(labelbottom=False)
+
+        self._canvas = FigureCanvasTkAgg(self._fig, master=self)
+        self._canvas.get_tk_widget().pack(fill="both", expand=True, padx=2, pady=(0, 2))
+
+        # ── rolling data buffers ───────────────────────────────────────────
+        self._tension   = [collections.deque(maxlen=MAX_POINTS) for _ in range(3)]
+        self._setpoints = [collections.deque(maxlen=MAX_POINTS) for _ in range(3)]
+
+        # matplotlib line objects
+        self._lines_t  = []
+        self._lines_sp = []
+        for i, ax in enumerate(self._axes):
+            lt, = ax.plot([], [], color=CH_COLORS[i],       linewidth=1.4, label=f"Tension CH{i+1}")
+            ls, = ax.plot([], [], color=SETPOINT_COLORS[i], linewidth=0.9,
+                          linestyle="--", alpha=0.75, label=f"Setpoint CH{i+1}")
+            ax.legend(loc="upper right", fontsize=6,
+                      facecolor=PANEL, edgecolor=BORDER, labelcolor=TEXT_DIM)
+            self._lines_t.append(lt)
+            self._lines_sp.append(ls)
+
+        # ── blink animation for recording dot ─────────────────────────────
+        self._blink_state = False
+        self._blink_job   = None
+
+    # ── public API ────────────────────────────────────────────────────────────
+    @property
+    def acquiring(self):
+        return self._acq_running
+
+    def push(self, tension: list, setpoints: list):
+        """Called by App whenever new data arrives and acquisition is active."""
+        if not self._acq_running:
+            return
+        for i in range(3):
+            try:
+                self._tension[i].append(tension[i])
+            except IndexError:
+                self._tension[i].append(float("nan"))
+            try:
+                self._setpoints[i].append(setpoints[i])
+            except IndexError:
+                self._setpoints[i].append(float("nan"))
+
+    def refresh(self):
+        """Redraw; call periodically from the GUI thread."""
+        if not self._acq_running:
+            return
+        for i in range(3):
+            yt  = list(self._tension[i])
+            ysp = list(self._setpoints[i])
+            xs  = list(range(len(yt)))
+            self._lines_t[i].set_data(xs, yt)
+            xsp = list(range(len(ysp)))
+            self._lines_sp[i].set_data(xsp, ysp)
+            self._axes[i].relim()
+            self._axes[i].autoscale_view()
+        self._canvas.draw_idle()
+
+    def clear_data(self):
+        for i in range(3):
+            self._tension[i].clear()
+            self._setpoints[i].clear()
+            self._lines_t[i].set_data([], [])
+            self._lines_sp[i].set_data([], [])
+        self._canvas.draw_idle()
+
+    def get_series(self):
+        """Return (tension_lists, setpoint_lists) as plain lists."""
+        return (
+            [list(d) for d in self._tension],
+            [list(d) for d in self._setpoints],
+        )
+
+    # ── acquisition control ───────────────────────────────────────────────────
+    def _start_acq(self):
+        self._acq_running = True
+        self._btn_start.config(state="disabled")
+        self._btn_stop.config(state="normal")
+        self._acq_dot.config(fg=DANGER)
+        self._blink()
+
+    def _stop_acq(self):
+        self._acq_running = False
+        self._btn_start.config(state="normal")
+        self._btn_stop.config(state="disabled")
+        if self._blink_job:
+            self.after_cancel(self._blink_job)
+            self._blink_job = None
+        self._acq_dot.config(fg=BORDER)
+
+    def _blink(self):
+        if not self._acq_running:
+            return
+        self._blink_state = not self._blink_state
+        self._acq_dot.config(fg=DANGER if self._blink_state else BORDER)
+        self._blink_job = self.after(600, self._blink)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 class App(tk.Tk):
 
     def __init__(self):
         super().__init__()
         self.title("ESP32 BLE Monitor")
         self.configure(bg=BG)
-        self.geometry("820x900")
-        self.minsize(700, 700)
+        self.geometry("860x1100")
+        self.minsize(700, 800)
         self.resizable(True, True)
+
+        # acquisition log rows
+        self._acq_rows: list[dict] = []
+        self._last_pwm       = [0.0, 0.0, 0.0]
+        self._last_setpoints = [0.0, 0.0, 0.0]
 
         self._ble = BLEManager(
             on_data=self._on_ble_data,
             on_status=self._on_ble_status,
         )
         self._build_ui()
+        self._graph_tick()
 
     # ── UI construction ───────────────────────────────────────────────────────
     def _build_ui(self):
@@ -328,7 +498,7 @@ class App(tk.Tk):
         hdr.pack(fill="x", side="top")
         hdr.pack_propagate(False)
 
-        tk.Label(hdr, text="◈  ESP32 BLE MONITOR", font=FONT_TITLE,
+        tk.Label(hdr, text="◈  Rétroaction haptique", font=FONT_TITLE,
                  bg=PANEL, fg=ACCENT).pack(side="left", padx=20)
 
         self._status_dot = tk.Label(hdr, text="●", font=("Courier New", 16),
@@ -353,7 +523,15 @@ class App(tk.Tk):
 
         self._btn_clear = self._make_button(
             ctrl, "⌫  CLEAR LOG", self._clear_log, TEXT_DIM)
-        self._btn_clear.pack(side="left")
+        self._btn_clear.pack(side="left", padx=(0, 8))
+
+        self._btn_save = self._make_button(
+            ctrl, "💾  SAVE CSV", self._save_csv, SUCCESS)
+        self._btn_save.pack(side="left", padx=(0, 8))
+
+        self._btn_delete = self._make_button(
+            ctrl, "🗑  DELETE DATA", self._delete_data, DANGER)
+        self._btn_delete.pack(side="left")
 
         # ── Scrollable body ────────────────────────────────────────────────
         body_outer = tk.Frame(self, bg=BG)
@@ -363,7 +541,6 @@ class App(tk.Tk):
         scrollbar = tk.Scrollbar(body_outer, orient="vertical",
                                  command=canvas.yview)
         canvas.configure(yscrollcommand=scrollbar.set)
-
         scrollbar.pack(side="right", fill="y")
         canvas.pack(side="left", fill="both", expand=True)
 
@@ -383,7 +560,6 @@ class App(tk.Tk):
         # ── Data cards ─────────────────────────────────────────────────────
         cards_frame = tk.Frame(scroll_frame, bg=BG)
         cards_frame.pack(fill="x", padx=16, pady=(0, 8))
-
         cards_frame.columnconfigure(0, weight=1)
         cards_frame.columnconfigure(1, weight=1)
 
@@ -407,38 +583,45 @@ class App(tk.Tk):
             ["P", "I", "D"], color="#e040fb")
         self._card_pid.grid(row=1, column=1, padx=(6, 0), pady=4, sticky="nsew")
 
-        # ── Divider ────────────────────────────────────────────────────────
-        div = tk.Frame(scroll_frame, bg=BORDER, height=1)
-        div.pack(fill="x", padx=16, pady=(4, 10))
+        # ── Graph + Controls side by side ──────────────────────────────────
+        side_frame = tk.Frame(scroll_frame, bg=BG)
+        side_frame.pack(fill="x", padx=16, pady=(0, 10))
 
-        tk.Label(scroll_frame, text="  CONTROLS", font=("Courier New", 8, "bold"),
-                 bg=BG, fg=TEXT_DIM).pack(anchor="w", padx=16, pady=(0, 6))
+        self._graph = LiveGraph(side_frame)
+        self._graph.pack(side="left", fill="both", expand=True, padx=(0, 6))
+
+        # right column: controls
+        right_col = tk.Frame(side_frame, bg=BG)
+        right_col.pack(side="left", fill="y", padx=(6, 0))
+
+        tk.Label(right_col, text="  CONTROLS", font=("Courier New", 8, "bold"),
+                 bg=BG, fg=TEXT_DIM).pack(anchor="w", pady=(0, 6))
 
         # ── Setpoints control panel ────────────────────────────────────────
         self._ctrl_setpoints = ControlPanel(
-            scroll_frame,
+            right_col,
             title="Set Points",
             field_labels=["CH 1", "CH 2", "CH 3"],
             color=SUCCESS,
             on_send=self._on_send_setpoints,
         )
-        self._ctrl_setpoints.pack(fill="x", padx=16, pady=(0, 8))
+        self._ctrl_setpoints.pack(fill="x", pady=(0, 8))
         self._ctrl_setpoints.set_enabled(False)
 
         # ── PID control panel ──────────────────────────────────────────────
         self._ctrl_pid = ControlPanel(
-            scroll_frame,
+            right_col,
             title="PID Values",
             field_labels=["P gain", "I gain", "D gain"],
             color="#e040fb",
             on_send=self._on_send_pid,
         )
-        self._ctrl_pid.pack(fill="x", padx=16, pady=(0, 8))
+        self._ctrl_pid.pack(fill="x", pady=(0, 8))
         self._ctrl_pid.set_enabled(False)
 
         # ── Send command bar ───────────────────────────────────────────────
-        div2 = tk.Frame(scroll_frame, bg=BORDER, height=1)
-        div2.pack(fill="x", padx=16, pady=(4, 10))
+        tk.Frame(scroll_frame, bg=BORDER, height=1).pack(
+            fill="x", padx=16, pady=(4, 10))
 
         send_frame = tk.Frame(scroll_frame, bg=PANEL, highlightbackground=BORDER,
                               highlightthickness=1)
@@ -496,7 +679,12 @@ class App(tk.Tk):
         btn.bind("<Leave>", lambda e: btn.config(bg=PANEL, fg=color))
         return btn
 
-    # ── BLE callbacks (called from BLE thread → schedule on GUI thread) ───────
+    # ── Graph refresh loop ────────────────────────────────────────────────────
+    def _graph_tick(self):
+        self._graph.refresh()
+        self.after(100, self._graph_tick)   # ~10 fps
+
+    # ── BLE callbacks ─────────────────────────────────────────────────────────
     def _on_ble_data(self, raw: str):
         self.after(0, self._handle_data, raw)
 
@@ -510,19 +698,42 @@ class App(tk.Tk):
         self._log_write(raw + "\n", "data")
 
         parsed = parse_payload(raw)
-        if parsed:
-            if "TENSION"   in parsed: self._card_tension.update_values(parsed["TENSION"])
-            if "PWM"       in parsed: self._card_pwm.update_values(parsed["PWM"])
-            if "SETPOINTS" in parsed:
-                self._card_setpoints.update_values(parsed["SETPOINTS"])
-                # self._ctrl_setpoints.set_values(parsed["SETPOINTS"])
-            if "PID"       in parsed:
-                self._card_pid.update_values(parsed["PID"])
-                # self._ctrl_pid.set_values(parsed["PID"])
+        if not parsed:
+            return
+
+        tension   = parsed.get("TENSION",   [])
+        setpoints = parsed.get("SETPOINTS", self._last_setpoints)
+
+        if "TENSION"   in parsed: self._card_tension.update_values(parsed["TENSION"])
+        if "PWM"       in parsed: self._card_pwm.update_values(parsed["PWM"])
+        if "SETPOINTS" in parsed:
+            self._card_setpoints.update_values(parsed["SETPOINTS"])
+            self._last_setpoints = list(parsed["SETPOINTS"])
+        if "PID"       in parsed:
+            self._card_pid.update_values(parsed["PID"])
+            self._last_pwm = list(parsed.get("PWM", self._last_pwm))
+
+        # push to graph
+        self._graph.push(tension, setpoints)
+
+        # record acquisition row
+        if self._graph.acquiring:
+            row = {
+                "timestamp":   datetime.now().isoformat(timespec="milliseconds"),
+                "pwm_ch1":     self._last_pwm[0],
+                "pwm_ch2":     self._last_pwm[1],
+                "pwm_ch3":     self._last_pwm[2],
+                "sp_ch1":      setpoints[0] if len(setpoints) > 0 else "",
+                "sp_ch2":      setpoints[1] if len(setpoints) > 1 else "",
+                "sp_ch3":      setpoints[2] if len(setpoints) > 2 else "",
+                "tension_ch1": tension[0] if len(tension) > 0 else "",
+                "tension_ch2": tension[1] if len(tension) > 1 else "",
+                "tension_ch3": tension[2] if len(tension) > 2 else "",
+            }
+            self._acq_rows.append(row)
 
     def _handle_status(self, state: str, message: str):
         ts = datetime.now().strftime("%H:%M:%S")
-
         colour_map = {
             "connected":    (SUCCESS, SUCCESS, "CONNECTED"),
             "disconnected": (DANGER,  "warning", "DISCONNECTED"),
@@ -573,6 +784,7 @@ class App(tk.Tk):
 
     def _on_send_setpoints(self, values: list):
         msg = "SET_SETPOINTS:" + ",".join(f"{v:.3f}" for v in values)
+        self._last_setpoints = values
         self._ble.send(msg)
         ts = datetime.now().strftime("%H:%M:%S")
         self._log_write(f"[{ts}] TX › {msg}\n", "success")
@@ -587,6 +799,49 @@ class App(tk.Tk):
         self._log.config(state="normal")
         self._log.delete("1.0", "end")
         self._log.config(state="disabled")
+
+    def _delete_data(self):
+        if not self._acq_rows and not any(self._graph._tension[i] for i in range(3)):
+            messagebox.showinfo("No data", "There is no acquisition data to delete.")
+            return
+        if not messagebox.askyesno("Delete data",
+                                   "This will permanently clear all recorded acquisition data\nand the live graph. Continue?"):
+            return
+        self._acq_rows.clear()
+        self._last_pwm       = [0.0, 0.0, 0.0]
+        self._last_setpoints = [0.0, 0.0, 0.0]
+        self._graph.clear_data()
+        ts = datetime.now().strftime("%H:%M:%S")
+        self._log_write(f"[{ts}] Acquisition data cleared.\n", "warning")
+
+    def _save_csv(self):
+        if not self._acq_rows:
+            messagebox.showinfo("No data", "No acquisition data to save.\n"
+                                "Start acquisition and receive some data first.")
+            return
+
+        path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+            title="Save acquisition data",
+            initialfile=f"esp32_acq_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+        )
+        if not path:
+            return
+
+        fieldnames = ["timestamp", "pwm_ch1", "pwm_ch2", "pwm_ch3",
+                      "sp_ch1", "sp_ch2", "sp_ch3",
+                      "tension_ch1", "tension_ch2", "tension_ch3"]
+        try:
+            with open(path, "w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(self._acq_rows)
+            self._log_write(f"[{datetime.now().strftime('%H:%M:%S')}] "
+                            f"Saved {len(self._acq_rows)} rows → {path}\n", "success")
+            messagebox.showinfo("Saved", f"Data saved to:\n{path}")
+        except Exception as e:
+            messagebox.showerror("Save failed", str(e))
 
     # ── Helpers ───────────────────────────────────────────────────────────────
     def _log_write(self, text: str, tag: str = ""):

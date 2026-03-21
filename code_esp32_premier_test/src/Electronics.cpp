@@ -13,6 +13,6 @@ PressureSensor::PressureSensor(float p_alpha, float p_rMax):
                                 m_rMax{p_rMax}, m_alpha{p_alpha}{}
 
 float PressureSensor::convertRtoRopeTension(float p_resistance){
-    return m_rMax/(m_alpha*p_resistance)-(1/m_alpha);
+    return m_rMax/(m_alpha*p_resistance)-(1/m_alpha) > 0 ? m_rMax/(m_alpha*p_resistance)-(1/m_alpha) : 0;
 }
 

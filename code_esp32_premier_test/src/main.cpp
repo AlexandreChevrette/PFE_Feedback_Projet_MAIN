@@ -26,10 +26,9 @@ Bluetooth bluetooth;
 
 Application app(&adc,&motorControl,&feedbackControl,&bridge1,&bridge2,&bridge3,&sensor1,&sensor2,&sensor3,&bluetooth);
 
-
+ 
 
 void setup(){
-
     app.setup();
     feedbackControl.updateSetpoint(1, 100);
     feedbackControl.updateSetpoint(2, 100);

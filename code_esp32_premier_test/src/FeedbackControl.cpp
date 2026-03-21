@@ -28,7 +28,7 @@ void FeedbackControl::applyPID(MotorControl* p_motorControl, float p_currentRope
     
     uint8_t pwmDutyCycle = (uint8_t)std::abs(controlInput);
 
-    m_pwmValues[motorIndex-1] = pwmDutyCycle* sign ? 1:-1; // multiply by direction
+    m_pwmValues[motorIndex-1] = (int)pwmDutyCycle* (sign ? 1:-1); // multiply by direction
     
     p_motorControl->setPWM(motorIndex, pwmDutyCycle);
 }
@@ -38,9 +38,6 @@ void FeedbackControl::updateSetpoint(size_t motorIndex, float p_ropeTension){
     if ((motorIndex < numberOfChannels+1) && (motorIndex > 0)){
         m_setpoints[motorIndex-1] = p_ropeTension; 
     }
-    Serial.println(m_setpoints[0]);
-    Serial.println(m_setpoints[1]);
-    Serial.println(m_setpoints[2]);
 }
 void FeedbackControl::setProportional(float p_value){
     m_pidP = p_value;

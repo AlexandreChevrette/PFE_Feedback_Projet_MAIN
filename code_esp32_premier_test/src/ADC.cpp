@@ -11,7 +11,6 @@ void ADC::setup(){
     pinMode(DRDY_PIN, INPUT);
     pinMode(CS_PIN, OUTPUT);
     digitalWrite(CS_PIN, HIGH);
-    Serial.println("Hello!");
     // clock for ADC chip (conversions)
     ledcSetup(1, CLOCK_FREQ, 1);
     ledcAttachPin(CLOCK_OUT, 1);
@@ -54,9 +53,6 @@ void ADC::readID() const {
     m_spi->endTransaction();
     digitalWrite(CS_PIN, HIGH);
 
-    Serial.printf("STATUS: 0x%02X%02X%02X\n", b0, b1, b2);
-    Serial.printf("ID reg: 0x%02X%02X\n", b3, b4);
-    Serial.println("Expected ID: 0x2284");
 }
 
 void ADC::reset() const{
@@ -70,7 +66,6 @@ void ADC::reset() const{
     // flush remaining frames
     for(int i = 0; i < (FRAME_SIZE_BYTES_ADC - 3); i++){
         m_spi->transfer(0x00);
-        Serial.println("emptying data line");
     }
     m_spi->endTransaction();
     digitalWrite(CS_PIN, HIGH);
@@ -111,20 +106,13 @@ void ADC::writeRegister(uint8_t p_reg, uint16_t p_value) const
         0x00,
         0x00
     };
-    for (int i = 0; i < 9; i++) {
-        Serial.print("0x");
-        if (buffer[i] < 0x10) Serial.print("0"); // leading zero
-        Serial.print(buffer[i], HEX);
-        Serial.print(" ");
-    }
-    Serial.println();
+
  
     m_spi->transfer(buffer, 9);
 
     // flush remaining frames
     for(int i = 0; i < (FRAME_SIZE_BYTES_ADC - 9); i++){
         m_spi->transfer(0);
-        Serial.println("emptying data line");
     }
     m_spi->endTransaction();
     digitalWrite(CS_PIN, HIGH);
@@ -152,6 +140,7 @@ const std::array<float, numberOfChannels>& ADC::readData()
 
         if(ch > 0)
             m_adcValues[ch-1] = convert24BitToVoltage(value, 1.f);
+
     }
 
     digitalWrite(CS_PIN, HIGH);

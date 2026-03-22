@@ -48,6 +48,15 @@
 #define ENABLE_FREE_W       0x15 // 0001 0101
 // setting HB1, 3, 5 to free_wheeling (synchronous rectification for PWM channels)
 
+#define OLD_CTRL_3_ADDR     0x21
+#define ENABLE_NEGATIVE_OLD 0x10 // 0001 0000
+
+#define OLD_CTRL_2_ADDR     0x20
+#define ENABLE_DANGER       0xC0 // 1100 0000
+
+#define OLD_CTRL_1_ADDR     0x1F
+#define DISABLE_OLD         0x00
+
 #define READ_ADDRESS        0x40 // concat to address to read
 
 #define IC_STATUS_ADDR      0x00
@@ -55,7 +64,7 @@
 const int numberOfMotors = 4;
 
 const std::array<uint8_t, numberOfMotors> pwmDutyAddress{PWM1_DUTY_ADDR, PWM2_DUTY_ADDR, PWM3_DUTY_ADDR, PWM4_DUTY_ADDR};
-const std::array<uint8_t, numberOfMotors> directionAddress{DIRECTION_ADDR1, DIRECTION_ADDR1, DIRECTION_ADDR2, DIRECTION_ADDR2};
+const std::array<uint8_t, numberOfMotors> directionAddress{DIRECTION_ADDR1, DIRECTION_ADDR2, DIRECTION_ADDR1, DIRECTION_ADDR2};
 
 const int FRAME_SIZE_BYTES_MOT = 16;
 
@@ -68,8 +77,6 @@ class MotorControl{
         void setForward(size_t p_motorIndex);
         void setReverse(size_t p_motorIndex);
         void cutPowerMotor(size_t p_motorIndex);
-        void incrementPwm(size_t p_motorIndex);
-        void decrementPwm(size_t p_motorIndex);
         uint8_t getStatus() const;
 
     private:
@@ -82,6 +89,9 @@ class MotorControl{
         void enablePwmChannels() const; 
         void setPwmFreq(uint8_t p_pwmMode) const;
         void enableSynchronousRectification() const;
+        void enableNegativeOLD() const;
+        void enableDangerousMode() const;
+        void disableOLD() const;
 };
 
 

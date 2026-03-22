@@ -30,6 +30,8 @@ void Application::setup(){
     m_adc->setup();
     attachInterrupt(digitalPinToInterrupt(DRDY_PIN), Application::drdyISR, FALLING);
     m_motorControl->setup();
+
+    delay(1000);
 }
 
 

@@ -19,17 +19,18 @@ void FeedbackControl::applyPID(MotorControl* p_motorControl, float p_currentRope
 
     float controlInput = m_pidP*error + m_pidI*m_errorSum[motorIndex-1];
     bool sign = controlInput >=0 ? 1:0;
-    // Serial.println(controlInput);
-    if (error > 0.1) p_motorControl->setForward(motorIndex);
-    else if (error < -0.1) p_motorControl->setReverse(motorIndex);
-    else p_motorControl->cutPowerMotor(motorIndex);
+
     
-    if (abs(controlInput) > 220.0f) controlInput = 220.0f;
+    if (error > 5) p_motorControl->setForward(motorIndex);
+    else if (error < -5) p_motorControl->setReverse(motorIndex);
+    else p_motorControl->cutPowerMotor(motorIndex); 
+    
+    if (abs(controlInput) > 225.0f) controlInput = 225.0f;
     
     uint8_t pwmDutyCycle = (uint8_t)std::abs(controlInput);
 
-    m_pwmValues[motorIndex-1] = (int)pwmDutyCycle* (sign ? 1:-1); // multiply by direction
-    
+    m_pwmValues[motorIndex-1] = (float)pwmDutyCycle* (sign ? 1:-1); // multiply by direction
+
     p_motorControl->setPWM(motorIndex, pwmDutyCycle);
 }
 

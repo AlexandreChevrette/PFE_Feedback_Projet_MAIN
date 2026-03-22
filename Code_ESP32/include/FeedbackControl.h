@@ -6,8 +6,8 @@
 #include "ADC.h"
 #include <array>
 
-#define PROPORTIONAL    0.2f
-#define INTEGRAL        0.001f
+#define PROPORTIONAL    3.f
+#define INTEGRAL        0.f
 #define DERIVATIVE      0.f
 
 class FeedbackControl{

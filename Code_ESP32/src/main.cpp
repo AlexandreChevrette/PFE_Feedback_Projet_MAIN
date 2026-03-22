@@ -18,9 +18,9 @@ FeedbackControl  feedbackControl;
 WheatstoneBridge bridge1{18000, 10000, 82000, 3.3};
 WheatstoneBridge bridge2{18000, 10000, 82000, 3.3};
 WheatstoneBridge bridge3{18000, 10000, 82000, 3.3};
-PressureSensor sensor1{0.0462, 200000};
-PressureSensor sensor2{0.0462, 200000};
-PressureSensor sensor3{0.0462, 200000};
+PressureSensor sensor1{3065365, 21539, 25};
+PressureSensor sensor2{3065365, 21539, 25};
+PressureSensor sensor3{3065365, 21539, 25};
 
 Bluetooth bluetooth;
 

@@ -30,9 +30,6 @@ Application app(&adc,&motorControl,&feedbackControl,&bridge1,&bridge2,&bridge3,&
 
 void setup(){
     app.setup();
-    // feedbackControl.updateSetpoint(1, 100);
-    // feedbackControl.updateSetpoint(2, 100);
-    // feedbackControl.updateSetpoint(3, 100);
 }
 void loop(){
     // at 8192000 clock and OSR 16384 -> constant 250 samples per second.

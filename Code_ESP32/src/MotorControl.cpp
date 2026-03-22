@@ -77,6 +77,9 @@ void MotorControl::setPwmFreq(uint8_t p_pwmMode) const{
     digitalWrite(NSCS_MOTOR, LOW);
     spi3.transfer(PWM_FREQ1_ADDR);
     spi3.transfer(p_pwmMode);
+    digitalWrite(NSCS_MOTOR, HIGH);
+
+    digitalWrite(NSCS_MOTOR, LOW);
     spi3.transfer(PWM_FREQ2_ADDR);
     spi3.transfer(p_pwmMode);
     digitalWrite(NSCS_MOTOR, HIGH);

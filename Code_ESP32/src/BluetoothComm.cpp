@@ -102,7 +102,7 @@ void Bluetooth::send(const String& data) {
     if (!deviceConnected) return;
 
     unsigned long now = millis();
-    if (now - m_lastSendTime < 50) return;  // 20Hz max
+    if (now - m_lastSendTime < 10) return;  // 100Hz max
     m_lastSendTime = now;
 
     m_Characteristic->setValue(data.c_str());

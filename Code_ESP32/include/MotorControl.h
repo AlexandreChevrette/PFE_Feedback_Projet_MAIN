@@ -83,6 +83,8 @@ class MotorControl{
         std::array<uint8_t, numberOfMotors> m_pwmValues;
         byte m_direction1Values;
         byte m_direction2Values;
+        uint8_t readRegister(uint8_t address) const;
+        void writeRegister(uint8_t address, uint8_t value) const;
         void setDirection(size_t p_motorIndex, uint8_t newValue);
         void mapHalfBridges() const;
         void setMotorMode() const; 

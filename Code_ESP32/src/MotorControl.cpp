@@ -1,171 +1,131 @@
 #include <Arduino.h>
 #include "MotorControl.h"
-#include <spi.h>
+#include <SPI.h>
 
-SPIClass spi3(HSPI); //SPI3
+SPIClass spi3(HSPI); // SPI3
 
-// page 59 et 64
-//PAGE 94 pour les bon registers
-//PAGE 105
+MotorControl::MotorControl()
+    : m_pwmValues{},
+      m_direction1Values{0x00},
+      m_direction2Values{0x00}
+{}
 
-MotorControl::MotorControl(): m_pwmValues{}, 
-                              m_direction1Values{0x00},
-                              m_direction2Values{0x00}{}
+void MotorControl::writeRegister(uint8_t address, uint8_t value) const {
+    digitalWrite(NSCS_MOTOR, LOW);
+    spi3.transfer(address);
+    spi3.transfer(value);
+    digitalWrite(NSCS_MOTOR, HIGH);
+    delay(1);
+}
 
-void MotorControl::setup(){
+uint8_t MotorControl::readRegister(uint8_t address) const {
+    digitalWrite(NSCS_MOTOR, LOW);
+    spi3.transfer(address | READ_ADDRESS);
+    uint8_t value = spi3.transfer(0x00);
+    spi3.transfer(0x00);
+    digitalWrite(NSCS_MOTOR, HIGH);
+    delay(1);
+    return value;
+}
+
+void MotorControl::setup() {
     pinMode(NSLEEP_MOTOR, OUTPUT);
     digitalWrite(NSLEEP_MOTOR, HIGH);
+
     pinMode(NSCS_MOTOR, OUTPUT);
     digitalWrite(NSCS_MOTOR, HIGH);
-    pinMode(NFAULT_MOTOR, INPUT); 
+
+    pinMode(NFAULT_MOTOR, INPUT);
 
     spi3.begin(SPI_SCLK_MOTOR, SPI_MISO_MOTOR, SPI_MOSI_MOTOR);
-    spi3.beginTransaction(SPISettings(SPI_SCLK_SPEED_MOT, MSBFIRST, SPI_MODE1)); 
-    //This logic follows page 29
+    spi3.beginTransaction(SPISettings(SPI_SCLK_SPEED_MOT, MSBFIRST, SPI_MODE1));
+
     enablePwmChannels();
     setMotorMode();
     enableSynchronousRectification();
-    // enableNegativeOLD(); dont think this does anything
-    enableDangerousMode(); //ALLOW MOTOR TO RUN WHEN OVER-CURRENT IS DETECTED
-    disableOLD(); // REMOVE OPEN LOAD DETECTION
+    enableDangerousMode();
+    disableOLD();
     mapHalfBridges();
     setPwmFreq(PWM_FREQ_2000);
 }
 
-// index 1,2,3,4 for motors
-void MotorControl::setPWM(size_t p_motorIndex, uint8_t p_pwmValue){
-    digitalWrite(NSCS_MOTOR, LOW);
-    if ((p_motorIndex < numberOfMotors+1) && (p_motorIndex > 0))
-    {
-        spi3.transfer(pwmDutyAddress[p_motorIndex-1]);
-        spi3.transfer(p_pwmValue);
-        m_pwmValues[p_motorIndex-1] = p_pwmValue;
+
+void MotorControl::setPWM(size_t p_motorIndex, uint8_t p_pwmValue) {
+    if ((p_motorIndex < numberOfMotors + 1) && (p_motorIndex > 0)) {
+        writeRegister(pwmDutyAddress[p_motorIndex - 1], p_pwmValue);
+        m_pwmValues[p_motorIndex - 1] = p_pwmValue;
     }
-    digitalWrite(NSCS_MOTOR, HIGH);
 }
 
+void MotorControl::setDirection(size_t p_motorIndex, uint8_t newValue) {
+    if ((p_motorIndex < numberOfMotors + 1) && (p_motorIndex > 0)) {
 
-void MotorControl::setDirection(size_t p_motorIndex, uint8_t newValue)
-{
-    digitalWrite(NSCS_MOTOR, LOW);
-    if ((p_motorIndex < numberOfMotors + 1) && (p_motorIndex > 0))
-    {
-        uint8_t* data = (p_motorIndex % 2) ? &m_direction1Values : &m_direction2Values;
+        uint8_t* data = (p_motorIndex % 2)
+                        ? &m_direction1Values
+                        : &m_direction2Values;
+
         uint8_t shift = (p_motorIndex > 1) ? 0 : 4;
 
         *data = (*data & ~(0x0F << shift)) | (newValue << shift);
 
-        spi3.transfer(directionAddress[p_motorIndex - 1]);
-        spi3.transfer(*data);
+        writeRegister(directionAddress[p_motorIndex - 1], *data);
     }
-    digitalWrite(NSCS_MOTOR, HIGH);
 }
 
-void MotorControl::setForward(size_t p_motorIndex){
+void MotorControl::setForward(size_t p_motorIndex) {
     setDirection(p_motorIndex, 0b1001);
 }
 
-void MotorControl::setReverse(size_t p_motorIndex){
+void MotorControl::setReverse(size_t p_motorIndex) {
     setDirection(p_motorIndex, 0b0110);
 }
 
-void MotorControl::cutPowerMotor(size_t p_motorIndex){
+void MotorControl::cutPowerMotor(size_t p_motorIndex) {
     setDirection(p_motorIndex, 0b0000);
-};
-
-void MotorControl::setPwmFreq(uint8_t p_pwmMode) const{
-    digitalWrite(NSCS_MOTOR, LOW);
-    spi3.transfer(PWM_FREQ1_ADDR);
-    spi3.transfer(p_pwmMode);
-    digitalWrite(NSCS_MOTOR, HIGH);
-
-    digitalWrite(NSCS_MOTOR, LOW);
-    spi3.transfer(PWM_FREQ2_ADDR);
-    spi3.transfer(p_pwmMode);
-    digitalWrite(NSCS_MOTOR, HIGH);
-}
-
-void MotorControl::mapHalfBridges() const{
-    digitalWrite(NSCS_MOTOR, LOW);
-
-    spi3.transfer(PWM_MAP1_ADDR);
-    spi3.transfer(MAPPING3); // HB1 and 2 to PWM3
-    digitalWrite(NSCS_MOTOR, HIGH);
-    delay(1);
-
-    digitalWrite(NSCS_MOTOR, LOW);
-    spi3.transfer(PWM_MAP2_ADDR);
-    spi3.transfer(MAPPING1); // HB3 and 4 to PWM1
-    digitalWrite(NSCS_MOTOR, HIGH);
-    delay(1);
-
-    digitalWrite(NSCS_MOTOR, LOW);
-    spi3.transfer(PWM_MAP3_ADDR);
-    spi3.transfer(MAPPING2); // HB5 and 6 to PWM2
-    digitalWrite(NSCS_MOTOR, HIGH);
-    delay(1);
-    
-    digitalWrite(NSCS_MOTOR, LOW);
-    spi3.transfer(PWM_MAP4_ADDR);
-    spi3.transfer(MAPPING4); // HB7 and 8 to not used  
-    digitalWrite(NSCS_MOTOR, HIGH);
 }
 
 
-void MotorControl::setMotorMode() const{
-    digitalWrite(NSCS_MOTOR, LOW);
-    spi3.transfer(HB_PWM_MODE_ADDR);
-    spi3.transfer(PWM_MODE);
-    digitalWrite(NSCS_MOTOR, HIGH);
+void MotorControl::setPwmFreq(uint8_t p_pwmMode) const {
+    writeRegister(PWM_FREQ1_ADDR, p_pwmMode);
+    writeRegister(PWM_FREQ2_ADDR, p_pwmMode);
 }
 
-void MotorControl::enablePwmChannels() const{
-    digitalWrite(NSCS_MOTOR, LOW);
-    spi3.transfer(PWM_MAP1_ADDR);
-    spi3.transfer(PWM_ENABLE1234);
-    digitalWrite(NSCS_MOTOR, HIGH);
-} 
-
-
-uint8_t MotorControl::getStatus() const{
-    digitalWrite(NSCS_MOTOR, LOW);
-    spi3.transfer(IC_STATUS_ADDR | READ_ADDRESS);
-    uint8_t status = spi3.transfer(0x00); 
-    spi3.transfer(0x00);
-    digitalWrite(NSCS_MOTOR, HIGH);
-    return status;
+void MotorControl::mapHalfBridges() const {
+    writeRegister(PWM_MAP1_ADDR, MAPPING3);
+    writeRegister(PWM_MAP2_ADDR, MAPPING1);
+    writeRegister(PWM_MAP3_ADDR, MAPPING2);
+    writeRegister(PWM_MAP4_ADDR, MAPPING4);
 }
 
-void MotorControl::enableSynchronousRectification() const{
-    digitalWrite(NSCS_MOTOR, LOW);
-    spi3.transfer(SYNC_RECT_ADDR);
-    spi3.transfer(ENABLE_FREE_W);
-    digitalWrite(NSCS_MOTOR, HIGH);
+void MotorControl::setMotorMode() const {
+    writeRegister(HB_PWM_MODE_ADDR, PWM_MODE);
 }
 
-void MotorControl::enableNegativeOLD() const{
-    digitalWrite(NSCS_MOTOR, LOW);
-    spi3.transfer(OLD_CTRL_3_ADDR);
-    spi3.transfer(ENABLE_NEGATIVE_OLD);
-    digitalWrite(NSCS_MOTOR, HIGH);
+void MotorControl::enablePwmChannels() const {
+    writeRegister(PWM_MAP1_ADDR, PWM_ENABLE1234);
 }
 
-void MotorControl::enableDangerousMode() const{
-    digitalWrite(NSCS_MOTOR, LOW);
-    spi3.transfer(OLD_CTRL_2_ADDR);
-    spi3.transfer(ENABLE_DANGER);
-    digitalWrite(NSCS_MOTOR, HIGH);
+void MotorControl::enableSynchronousRectification() const {
+    writeRegister(SYNC_RECT_ADDR, ENABLE_FREE_W);
 }
 
-void MotorControl::disableOLD() const{
-    digitalWrite(NSCS_MOTOR, LOW);
-    spi3.transfer(OLD_CTRL_1_ADDR);
-    spi3.transfer(DISABLE_OLD);
-    digitalWrite(NSCS_MOTOR, HIGH);
+void MotorControl::enableNegativeOLD() const {
+    writeRegister(OLD_CTRL_3_ADDR, ENABLE_NEGATIVE_OLD);
 }
 
-MotorControl::~MotorControl(){
+void MotorControl::enableDangerousMode() const {
+    writeRegister(OLD_CTRL_2_ADDR, ENABLE_DANGER);
+}
+
+void MotorControl::disableOLD() const {
+    writeRegister(OLD_CTRL_1_ADDR, DISABLE_OLD);
+}
+
+uint8_t MotorControl::getStatus() const {
+    return readRegister(IC_STATUS_ADDR);
+}
+
+MotorControl::~MotorControl() {
     digitalWrite(NSLEEP_MOTOR, LOW);
     spi3.endTransaction();
 }
-

@@ -26,7 +26,9 @@ void FeedbackControl::applyPID(MotorControl* p_motorControl, float p_currentRope
     else p_motorControl->cutPowerMotor(motorIndex); 
     
     if (abs(controlInput) > 225.0f) controlInput = 225.0f;
-    
+
+
+
     uint8_t pwmDutyCycle = (uint8_t)std::abs(controlInput);
 
     m_pwmValues[motorIndex-1] = (float)pwmDutyCycle* (sign ? 1:-1); // multiply by direction

@@ -19,6 +19,8 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.ticker as ticker
 
+import serial
+
 # ── BLE config ────────────────────────────────────────────────────────────────
 DEVICE_NAME         = "ESP32-BLE"
 CHARACTERISTIC_UUID = "abcd1234-ab12-ab12-ab12-abcdef123456"
@@ -46,6 +48,50 @@ SETPOINT_COLORS = ["#4fc3f7", "#69f0ae", "#ffd54f"]   # lighter dashed variants
 GRAPH_BG        = "#111113"
 GRAPH_AXES_BG   = "#161618"
 
+
+import serial
+import re
+
+class SerialManager:
+    def __init__(self, port, baudrate, on_data, on_status):
+        self.port = port
+        self.baudrate = baudrate
+        self.on_data = on_data
+        self.on_status = on_status
+        self._running = False
+        self.ser = None
+
+    def start(self):
+        try:
+            self.ser = serial.Serial(self.port, self.baudrate, timeout=1)
+            self._running = True
+            threading.Thread(target=self._read_loop, daemon=True).start()
+            self.on_status("connected", f"Serial connected on {self.port}")
+        except Exception as e:
+            self.on_status("error", f"Serial error: {e}")
+
+    def stop(self):
+        self._running = False
+        if self.ser:
+            self.ser.close()
+        self.on_status("disconnected", "Serial disconnected")
+
+    def _read_loop(self):
+        while self._running:
+            try:
+                line = self.ser.readline().decode(errors="ignore").strip()
+                if line:
+                    self.on_data(line)
+            except Exception as e:
+                self.on_status("error", str(e))
+                break
+
+def parse_tension(line: str):
+    pattern = r"Tension 1:\s*([\d\.\-eE]+),\s*Tension 2:\s*([\d\.\-eE]+),\s*Tension 3:\s*([\d\.\-eE]+)"
+    match = re.search(pattern, line)
+    if not match:
+        return None
+    return list(map(float, match.groups()))
 
 # ══════════════════════════════════════════════════════════════════════════════
 class BLEManager:
@@ -105,7 +151,10 @@ class BLEManager:
     async def _send(self, message: str):
         try:
             await self.client.write_gatt_char(
-                CHARACTERISTIC_UUID, message.encode(), response=True)
+                CHARACTERISTIC_UUID,
+                message.encode(),
+                response=False   # 🔥 change this
+            )
         except Exception as e:
             self.on_status("error", f"Send failed: {e}")
 
@@ -430,7 +479,6 @@ class LiveGraph(tk.Frame):
     def clear_data(self):
         for i in range(3):
             self._tension[i].clear()
-            self._setpoints[i].clear()
             self._lines_t[i].set_data([], [])
             self._lines_sp[i].set_data([], [])
         self._canvas.draw_idle()
@@ -487,8 +535,21 @@ class App(tk.Tk):
             on_data=self._on_ble_data,
             on_status=self._on_ble_status,
         )
+
+        # Serial added in parallel
+        self._serial = SerialManager(
+            port="COM3",       # change to your PC port
+            baudrate=115200,
+            on_data=self._on_serial_data,
+            on_status=self._on_serial_status  # can reuse BLE status handler
+        )
         self._build_ui()
         self._graph_tick()
+
+    def _on_serial_status(self, state: str, message: str):
+        # For example, just log it
+        ts = datetime.now().strftime("%H:%M:%S")
+        self._log_write(f"[{ts}] SERIAL STATUS: {message}\n", "accent")
 
     # ── UI construction ───────────────────────────────────────────────────────
     def _build_ui(self):
@@ -679,6 +740,28 @@ class App(tk.Tk):
         btn.bind("<Leave>", lambda e: btn.config(bg=PANEL, fg=color))
         return btn
 
+
+    def _on_serial_data(self, raw: str):
+        self.after(0, self._handle_serial_data, raw)
+
+    def _handle_serial_data(self, raw: str):
+        print(raw)
+        ts = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+
+        self._log_write(f"[{ts}] {raw}\n", "data")
+
+        tension = parse_tension(raw)
+        if not tension:
+            return
+
+        # update UI
+        self._card_setpoints.update_values(tension)
+
+        self._on_send_setpoints(tension)
+
+        # push to graph (reuse your system)
+        self._graph.push(tension, self._last_setpoints)
+
     # ── Graph refresh loop ────────────────────────────────────────────────────
     def _graph_tick(self):
         self._graph.refresh()
@@ -706,9 +789,9 @@ class App(tk.Tk):
 
         if "TENSION"   in parsed: self._card_tension.update_values(parsed["TENSION"])
         if "PWM"       in parsed: self._card_pwm.update_values(parsed["PWM"])
-        if "SETPOINTS" in parsed:
-            self._card_setpoints.update_values(parsed["SETPOINTS"])
-            self._last_setpoints = list(parsed["SETPOINTS"])
+        # if "SETPOINTS" in parsed:
+        #     self._card_setpoints.update_values(parsed["SETPOINTS"])
+        #     self._last_setpoints = list(parsed["SETPOINTS"])
         if "PID"       in parsed:
             self._card_pid.update_values(parsed["PID"])
             self._last_pwm = list(parsed.get("PWM", self._last_pwm))
@@ -765,6 +848,7 @@ class App(tk.Tk):
     def _on_connect(self):
         self._btn_connect.config(state="disabled")
         self._ble.connect()
+        self._serial.start()
 
     def _on_disconnect(self):
         self._btn_disconnect.config(state="disabled")
@@ -853,5 +937,6 @@ class App(tk.Tk):
 
 # ══════════════════════════════════════════════════════════════════════════════
 if __name__ == "__main__":
+    
     app = App()
     app.mainloop()

@@ -17,12 +17,11 @@ void IRAM_ATTR Application::drdyISR()
 Application::Application(ADC* p_adc, MotorControl* p_motorControl, FeedbackControl* p_feedbackControl, 
                         WheatstoneBridge* p_bridge1,WheatstoneBridge* p_bridge2, WheatstoneBridge* p_bridge3,
                         PressureSensor* p_sensor1, PressureSensor* p_sensor2, PressureSensor* p_sensor3, 
-                        Bluetooth* p_bluetooth):
+                        Bluetooth* p_bluetooth) :
                         m_adc{p_adc}, m_motorControl{p_motorControl}, m_feedbackControl{p_feedbackControl},
                         m_bridge1{p_bridge1},m_bridge2{p_bridge2},m_bridge3{p_bridge3},
                         m_sensor1{p_sensor1},m_sensor2{p_sensor2},m_sensor3{p_sensor3},
                         m_bluetooth{p_bluetooth}{}
-
 void Application::setup(){
 
     Serial.begin(115200);
@@ -36,7 +35,7 @@ void Application::setup(){
 
 
 void Application::run(){
-        bool ready = s_dataReady; // safe practice according to Chat
+        bool ready = s_dataReady;
         if (!ready) return;
         s_dataReady = false;
 

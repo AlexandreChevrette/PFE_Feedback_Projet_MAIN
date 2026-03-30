@@ -30,7 +30,6 @@ class Application{
         PressureSensor* m_sensor2;
         PressureSensor* m_sensor3;
         Bluetooth* m_bluetooth;
-
 };
 
 

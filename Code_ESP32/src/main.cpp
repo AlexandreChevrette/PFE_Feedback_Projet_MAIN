@@ -11,6 +11,7 @@
 #include <BLE2902.h>
 #include "BluetoothComm.h"
 
+
 SPIClass spiADC(FSPI);
 ADC adc(&spiADC);
 MotorControl motorControl;
@@ -18,11 +19,12 @@ FeedbackControl  feedbackControl;
 WheatstoneBridge bridge1{18000, 10000, 82000, 3.3};
 WheatstoneBridge bridge2{18000, 10000, 82000, 3.3};
 WheatstoneBridge bridge3{18000, 10000, 82000, 3.3};
-PressureSensor sensor1{3065365, 21539, 25};
-PressureSensor sensor2{3065365, 21539, 25};
-PressureSensor sensor3{3065365, 21539, 25};
+PressureSensor sensor1{3065365, 21539, 15};
+PressureSensor sensor2{3065365, 21539, 15};
+PressureSensor sensor3{3065365, 21539, 15};
 
 Bluetooth bluetooth;
+
 
 Application app(&adc,&motorControl,&feedbackControl,&bridge1,&bridge2,&bridge3,&sensor1,&sensor2,&sensor3,&bluetooth);
 

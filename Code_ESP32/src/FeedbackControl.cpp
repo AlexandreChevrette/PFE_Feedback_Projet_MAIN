@@ -26,6 +26,7 @@ void FeedbackControl::applyPID(MotorControl* p_motorControl, float p_currentRope
     else p_motorControl->cutPowerMotor(motorIndex); 
     
     if (abs(controlInput) > 225.0f) controlInput = 225.0f;
+    if (abs(controlInput) > 5.0f && abs(controlInput) < 57.0f) controlInput = 57.0f; // minimum power threshold to overcome static friction
 
 
 
